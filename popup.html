@@ -1,169 +1,222 @@
 <!DOCTYPE html>
 <html lang="vi">
-<head>
-  <meta charset="UTF-8">
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      width: 440px;
-      padding: 14px;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      font-size: 13px;
-      color: #222;
-      background: #fafafa;
-    }
-    header {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 12px;
-    }
-    header h1 { font-size: 15px; font-weight: 700; color: #ee4d2d; }
-    header span { font-size: 11px; color: #888; }
+  <head>
+    <meta charset="UTF-8">
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body {
+          width: 440px;
+          padding: 14px;
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+          font-size: 13px;
+          color: #222;
+          background: #fafafa;
+      }
+      header {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-bottom: 12px;
+      }
+      header h1 { font-size: 15px; font-weight: 700; color: #ee4d2d; }
+      header span { font-size: 11px; color: #888; }
 
-    /* ── Action buttons ── */
-    .btn-row { display: flex; gap: 8px; margin-bottom: 10px; }
-    button {
-      padding: 7px 14px;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-      font-size: 13px;
-      font-weight: 600;
-      transition: opacity .15s;
-    }
-    button:disabled { opacity: .38; cursor: default; }
-    button:hover:not(:disabled) { opacity: .82; }
-    #extractBtn { background: #ee4d2d; color: #fff; flex: 1; }
-    #copyBtn    { background: #444; color: #fff; }
+      /* Action buttons */
+      .btn-row { display: flex; gap: 8px; margin-bottom: 10px; }
+      button {
+          padding: 7px 14px;
+          border: none;
+          border-radius: 5px;
+          cursor: pointer;
+          font-size: 13px;
+          font-weight: 600;
+          transition: opacity .15s;
+      }
+      button:disabled { opacity: .38; cursor: default; }
+      button:hover:not(:disabled) { opacity: .82; }
+      #extractBtn { background: #ee4d2d; color: #fff; flex: 1; }
+      #copyBtn    { background: #444;    color: #fff; }
 
-    /* ── Output textarea ── */
-    textarea {
-      width: 100%;
-      height: 180px;
-      padding: 8px;
-      border: 1px solid #ddd;
-      border-radius: 5px;
-      font-family: "SF Mono", Menlo, monospace;
-      font-size: 11px;
-      resize: vertical;
-      background: #fff;
-      line-height: 1.5;
-    }
+      /* Price box */
+      #priceBox {
+          display: none;
+          align-items: center;
+          gap: 10px;
+          margin-bottom: 10px;
+          padding: 8px 12px;
+          background: #fff8f0;
+          border: 1px solid #fbd38d;
+          border-radius: 6px;
+      }
+      #priceBox .price-label {
+          font-size: 11px;
+          color: #92400e;
+          font-weight: 600;
+          white-space: nowrap;
+      }
+      #priceCNY {
+          font-size: 20px;
+          font-weight: 700;
+          color: #b45309;
+          letter-spacing: -.5px;
+      }
+      #priceBox .arrow {
+          font-size: 14px;
+          color: #d97706;
+      }
+      #priceVND {
+          font-size: 20px;
+          font-weight: 700;
+          color: #15803d;
+          letter-spacing: -.5px;
+      }
+      #priceBox .rate-note {
+          font-size: 10px;
+          color: #9ca3af;
+          margin-left: auto;
+          white-space: nowrap;
+      }
 
-    /* ── Status line ── */
-    #status {
-      margin-top: 7px;
-      font-size: 12px;
-      min-height: 16px;
-      color: #666;
-    }
-    #status.ok  { color: #16a34a; }
-    #status.err { color: #dc2626; }
+      /* Output textarea */
+      textarea {
+          width: 100%;
+          height: 180px;
+          padding: 8px;
+          border: 1px solid #ddd;
+          border-radius: 5px;
+          font-family: "SF Mono", Menlo, monospace;
+          font-size: 11px;
+          resize: vertical;
+          background: #fff;
+          line-height: 1.5;
+      }
 
-    /* ── Download section ── */
-    #dlSection {
-      display: none;
-      margin-top: 12px;
-      border: 1px solid #e5e7eb;
-      border-radius: 6px;
-      overflow: hidden;
-    }
-    .dlHeader {
-      background: #f3f4f6;
-      padding: 7px 12px;
-      font-size: 12px;
-      font-weight: 600;
-      color: #374151;
-      border-bottom: 1px solid #e5e7eb;
-    }
-    .dlBody { padding: 10px 12px; }
-    .dlRow { display: flex; gap: 8px; margin-bottom: 8px; }
-    .dlBtn {
-      flex: 1;
-      padding: 7px 10px;
-      background: #1d4ed8;
-      color: #fff;
-      border-radius: 5px;
-      font-size: 12px;
-      font-weight: 600;
-    }
-    .dlBtn.green { background: #15803d; }
-    .dlBtn.all   { background: #7c3aed; }
-    #dlProgress {
-      font-size: 11px;
-      color: #6b7280;
-      min-height: 15px;
-      margin-top: 2px;
-    }
-    #dlProgress.ok  { color: #16a34a; }
-    #dlProgress.err { color: #dc2626; }
+      /* Status line */
+      #status {
+          margin-top: 7px;
+          font-size: 12px;
+          min-height: 16px;
+          color: #666;
+      }
+      #status.ok  { color: #16a34a; }
+      #status.err { color: #dc2626; }
 
-    /* ── Image preview strip ── */
-    #imgStrip {
-      display: none;
-      flex-wrap: nowrap;
-      gap: 4px;
-      margin-top: 8px;
-      overflow-x: auto;
-      padding-bottom: 4px;
-    }
-    #imgStrip img {
-      width: 52px;
-      height: 52px;
-      object-fit: cover;
-      border-radius: 4px;
-      border: 1px solid #ddd;
-      flex-shrink: 0;
-    }
+      /* Download section */
+      #dlSection {
+          display: none;
+          margin-top: 12px;
+          border: 1px solid #e5e7eb;
+          border-radius: 6px;
+          overflow: hidden;
+      }
+      .dlHeader {
+          background: #f3f4f6;
+          padding: 7px 12px;
+          font-size: 12px;
+          font-weight: 600;
+          color: #374151;
+          border-bottom: 1px solid #e5e7eb;
+      }
+      .dlBody { padding: 10px 12px; }
+      .dlRow  { display: flex; gap: 8px; margin-bottom: 8px; }
+      .dlBtn  {
+          flex: 1;
+          padding: 7px 10px;
+          background: #1d4ed8;
+          color: #fff;
+          border-radius: 5px;
+          font-size: 12px;
+          font-weight: 600;
+      }
+      .dlBtn.green { background: #15803d; }
+      .dlBtn.all   { background: #7c3aed; }
+      #dlProgress {
+          font-size: 11px;
+          color: #6b7280;
+          min-height: 15px;
+          margin-top: 2px;
+      }
+      #dlProgress.ok  { color: #16a34a; }
+      #dlProgress.err { color: #dc2626; }
 
-    /* ── Hint box ── */
-    .hint {
-      margin-top: 10px;
-      padding: 7px 10px;
-      background: #fff8f0;
-      border-left: 3px solid #ee4d2d;
-      border-radius: 4px;
-      font-size: 11px;
-      color: #555;
-      line-height: 1.6;
-    }
-    .hint strong { color: #ee4d2d; }
-  </style>
-</head>
-<body>
-  <header>
-    <h1>NJoy Importer</h1>
-    <span>Taobao / 1688 → NJoy Listing</span>
-  </header>
+      /* Image preview strip */
+      #imgStrip {
+          display: none;
+          flex-wrap: nowrap;
+          gap: 4px;
+          margin-top: 8px;
+          overflow-x: auto;
+          padding-bottom: 4px;
+      }
+      #imgStrip img {
+          width: 52px;
+          height: 52px;
+          object-fit: cover;
+          border-radius: 4px;
+          border: 1px solid #ddd;
+          flex-shrink: 0;
+      }
 
+      /* Hint box */
+      .hint {
+          margin-top: 10px;
+          padding: 7px 10px;
+          background: #fff8f0;
+          border-left: 3px solid #ee4d2d;
+          border-radius: 4px;
+          font-size: 11px;
+          color: #555;
+          line-height: 1.6;
+      }
+      .hint strong { color: #ee4d2d; }
+      </style>
+  </head>
+  <body>
+    <header>
+        <h1>NJoy Importer</h1>
+      <span>Taobao / 1688 &rarr; NJoy Listing</span>
+    </header>
+  
   <div class="btn-row">
-    <button id="extractBtn">Trích xuất sản phẩm</button>
-    <button id="copyBtn" disabled>Copy text</button>
-  </div>
-
-  <textarea id="output" readonly placeholder="Mở trang sản phẩm Taobao hoặc 1688, sau đó bấm 'Trích xuất'..."></textarea>
-  <div id="imgStrip"></div>
-  <div id="status"></div>
-
+    <button id="extractBtn">Tr&iacute;ch xu&#7845;t s&#7843;n ph&#7849;m</button>button>
+    <button id="copyBtn" disabled>Copy text</button>button>
+  </div>div>
+  
+  <!-- Price display box (hidden until extraction) -->
+  <div id="priceBox">
+    <span class="price-label">GI&Aacute;</span>
+    <span id="priceCNY">&yen;--</span>
+    <span class="arrow">&#8594;</span>
+    <span id="priceVND">--&#8363;</span>
+    <span class="rate-note">t&#7879; &times; 4.100</span>
+  </div>div>
+  
+  <textarea id="output" readonly placeholder="M&#7903; trang s&#7843;n ph&#7849;m Taobao ho&#7863;c 1688, sau &#273;&#243; b&#7845;m 'Tr&iacute;ch xu&#7845;t'..."></textarea>
+  <div id="imgStrip"></div>div>
+  <div id="status"></div>div>
+  
   <!-- Download section (appears after extraction) -->
   <div id="dlSection">
-    <div class="dlHeader">Tải ảnh về máy → Downloads/njoy-import/</div>
+    <div class="dlHeader">T&#7843;i &#7843;nh v&#7873; m&aacute;y &rarr; Downloads/njoy-import/</div>div>
     <div class="dlBody">
-      <div class="dlRow">
-        <button class="dlBtn" id="dlMainBtn" disabled>Ảnh chính (0)</button>
-        <button class="dlBtn green" id="dlDescBtn" disabled>Ảnh mô tả (0)</button>
-        <button class="dlBtn all" id="dlAllBtn" disabled>Tải tất cả</button>
-      </div>
-      <div id="dlProgress"></div>
-    </div>
-  </div>
-
+        <div class="dlRow">
+              <button class="dlBtn"       id="dlMainBtn" disabled>&#7842;nh ch&iacute;nh (0)</button>button>
+              <button class="dlBtn green" id="dlDescBtn" disabled>&#7842;nh m&ocirc; t&#7843; (0)</button>button>
+              <button class="dlBtn all"   id="dlAllBtn"  disabled>T&#7843;i t&#7845;t c&#7843;</button>button>
+        </div>div>
+        <div id="dlProgress"></div>div>
+    </div>div>
+  </div>div>
+  
   <div class="hint">
-    <strong>Luồng:</strong> Trích xuất → Copy text → Paste vào Claude → Tải ảnh về.
-    <br>Chrome có thể hỏi "cho phép tải nhiều file" — bấm <strong>Allow</strong> 1 lần là xong.
-  </div>
-
+    <strong>Lu&#7891;ng:</strong> Tr&iacute;ch xu&#7845;t &rarr; Copy text &rarr; Paste v&agrave;o Claude &rarr; T&#7843;i &#7843;nh v&#7873;.
+    <br>Chrome c&oacute; th&#7875; h&#7887;i "cho ph&eacute;p t&#7843;i nhi&#7873;u file" &mdash; b&#7845;m <strong>Allow</strong> 1 l&#7847;n l&agrave; xong.
+  </div>div>
+  
   <script src="popup.js"></script>
-</body>
-</html>
+  </body>
+</html>html></strong></strong></span></h1>
+    </header>
+  </body>
+    </style>
+  </head>
