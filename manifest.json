@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "NJoy Product Importer",
+  "version": "1.0",
+  "description": "Trích xuất sản phẩm Taobao/1688 để tạo listing Shopee NJoy",
+  "permissions": ["activeTab", "scripting", "clipboardWrite", "downloads"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "NJoy Importer"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://*.taobao.com/*", "*://*.1688.com/*", "*://*.tmall.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ]
+}
