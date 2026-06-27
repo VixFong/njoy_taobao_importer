@@ -12,12 +12,12 @@ const priceBox   = document.getElementById('priceBox');
 
 let currentData = null;
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 function setStatus(msg, type = '') { statusEl.textContent = msg; statusEl.className = type; }
 function setDlProgress(msg, type = '') { dlProgress.textContent = msg; dlProgress.className = type; }
 function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-// ── Price display ─────────────────────────────────────────────────────────────
+// ── Price display ──────────────────────────────────────────────────────────────
 function showPrice(price) {
   if (!price || !priceBox) return;
   priceBox.style.display = 'flex';
@@ -26,150 +26,166 @@ function showPrice(price) {
 }
 function hidePrice() { if (priceBox) priceBox.style.display = 'none'; }
 
-// ── Output formatter ──────────────────────────────────────────────────────────
+// ── Output formatter ───────────────────────────────────────────────────────────
 function formatOutput(d) {
-  const lines = [];
+  const L = [];
   const is1688 = d.platform === '1688';
+  const src = is1688
+    ? '1688 (thong so ky thuat thuong chinh xac va day du hon Taobao — uu tien dung)'
+    : 'Taobao (kiem tra lai thong so neu co the tu trang 1688 tuong ung)';
 
-  lines.push('=== NJOY PRODUCT IMPORT ===');
-  lines.push('Platform : ' + d.platform.toUpperCase() + (is1688 ? '  ★ Uu tien du lieu nay — thong so chinh xac hon' : ''));
-  lines.push('URL      : ' + d.url);
-  lines.push('');
+  // ─ HEADER ─
+  L.push('=== NJOY PRODUCT IMPORT ===');
+  L.push('Platform : ' + d.platform.toUpperCase());
+  L.push('URL      : ' + d.url);
+  L.push('');
 
+  // ─ GIA ─
   if (d.price) {
-    lines.push('── GIA SAN PHAM ──');
-    lines.push('Gia Te : ' + d.price.cnyStr + '  |  Gia VND : ' + d.price.vndStr + ' (te x 4.100)');
-    lines.push('');
+    L.push('[ GIA ] ' + d.price.cnyStr + '  =>  ' + d.price.vndStr + '  (ty gia x4.100)');
+    L.push('');
   }
 
-  lines.push('── TIEU DE GOC ──');
-  lines.push(d.title || '(khong lay duoc)');
-  lines.push('');
+  // ─ TIEU DE GOC ─
+  L.push('[ TIEU DE GOC - ' + d.platform.toUpperCase() + ' ]');
+  L.push(d.title || '(khong lay duoc)');
+  L.push('');
 
+  // ─ THONG SO ─
   if (d.specs.length > 0) {
-    lines.push('── THONG SO KY THUAT' + (is1688 ? ' [1688 — do chinh xac cao]' : ' [Taobao]') + ' ──');
-    d.specs.forEach(s => lines.push('• ' + s));
-    lines.push('');
+    L.push('[ THONG SO KY THUAT - ' + (is1688 ? '1688 / DO CHINH XAC CAO' : 'TAOBAO') + ' ]');
+    d.specs.forEach(s => L.push('  ' + s));
+    L.push('');
   }
 
+  // ─ VARIANTS ─
   if (d.variants.length > 0) {
-    lines.push('── VARIANTS (mau / size / model) ──');
-    d.variants.forEach(v => lines.push('• ' + v));
-    lines.push('');
+    L.push('[ VARIANTS ]');
+    d.variants.forEach(v => L.push('  ' + v));
+    L.push('');
   }
 
+  // ─ ANH ─
   if (d.images.length > 0) {
-    lines.push('── ANH CHINH (' + d.images.length + ' anh) ──');
-    d.images.forEach((url, i) => lines.push(String(i+1).padStart(2,'0') + '. ' + url));
-    lines.push('');
+    L.push('[ ANH CHINH - ' + d.images.length + ' anh ]');
+    d.images.forEach((u, i) => L.push(String(i+1).padStart(2,'0') + '. ' + u));
+    L.push('');
   }
-
   if (d.descImages.length > 0) {
-    lines.push('── ANH MO TA (' + d.descImages.length + ' anh) ──');
-    d.descImages.forEach((url, i) => lines.push(String(i+1).padStart(2,'0') + '. ' + url));
-    lines.push('');
+    L.push('[ ANH MO TA - ' + d.descImages.length + ' anh ]');
+    d.descImages.forEach((u, i) => L.push(String(i+1).padStart(2,'0') + '. ' + u));
+    L.push('');
   }
 
+  // ─ MO TA GOC ─
   if (d.desc) {
-    lines.push('── MO TA GOC (text) ──');
-    lines.push(d.desc);
-    lines.push('');
+    L.push('[ MO TA GOC ]');
+    L.push(d.desc);
+    L.push('');
   }
 
-  // ══ PROMPT CHO CLAUDE ══
-  lines.push('════════════════════════════════════════════════════════════════');
-  lines.push('NHIEM VU: Tao ten san pham + mo ta chuan Shopee, thu hut mua sam');
-  lines.push('════════════════════════════════════════════════════════════════');
-  lines.push('');
+  // ════════════════════════════════════════════════════════
+  // PROMPT CHO CLAUDE
+  // ════════════════════════════════════════════════════════
+  L.push('================================================================');
+  L.push('YEU CAU: Tao TEN SAN PHAM + MO TA CHUAN SHOPEE tu du lieu tren');
+  L.push('Nguon: ' + src);
+  L.push('================================================================');
+  L.push('');
 
-  lines.push('Nguon du lieu: ' + d.platform.toUpperCase() + (is1688 ? ' — thong so ky thuat tu 1688 thuong chinh xac va day du hon Taobao.' : ' — kiem tra lai thong so ky thuat neu co the.'));
-  lines.push('');
+  // ─ PHAN 1: TEN ─
+  L.push('━━━ PHAN 1: TEN SAN PHAM CHUAN SEO ━━━');
+  L.push('');
+  L.push('NGUYEN TAC BAT BUOC (Shopee co the an/phat listing neu vi pham):');
+  L.push('  [x] Toi da 120 ky tu');
+  L.push('  [x] Khong dung: VIET HOA TOAN BO, spam !!!!!, tu khoa lap lai');
+  L.push('  [x] Khong chen: so dien thoai, link, ten shop, cam ket "gia re nhat"');
+  L.push('  [x] Ten PHAI khop voi anh san pham va thong so thuc te');
+  L.push('');
+  L.push('CONG THUC TOI UU cho phu kien dien tu:');
+  L.push('  [Tinh nang/UU diem chinh] + [Chat lieu/Chuan] + [Ten SP] + [Dong may tuong thich]');
+  L.push('');
+  L.push('MEO VIET TEN CAO TUONG TU SHOPEE MALL:');
+  L.push('  * Dat tu khoa nguoi mua hay search TRUOC (VD: "Chong Soc", "Tu Dan", "Sieu Mong")');
+  L.push('  * Liet ke DU DONG MAY cu the: "iPhone 17 16 15 14 13 Pro Max Plus" — moi dong = 1 tu khoa');
+  L.push('  * Neu co thuong hieu: "Anank", "Kuzoom", "WK KK" — giu nguyen, day la tu khoa rieng');
+  L.push('  * Viet Title Case (Viet Hoa Dau Moi Tu), tu nhien, de doc');
+  L.push('  * Co the them 1 tag cuoi: "- Trong Suot 9H", "- Chinh Hang", "- Mong 0.26mm"');
+  L.push('');
+  L.push('VI DU TEN DUNG CHUAN (phu kien Apple):');
+  L.push('  -> Kinh Cuong Luc Tu Dan Chong Bui Thong Minh iPhone 17 16 15 14 13 12 11 Pro Max Plus');
+  L.push('  -> Op Silicon Chong Ban Lot Nhung Co Sac Tu Tinh Bao Ve Camera iPhone 17 16 15 14 Pro Max');
+  L.push('  -> Cuong Luc Camera Kuzoom AR Chong Tray Sieu Net iPhone 17 16 15 14 13 Pro Max Plus');
+  L.push('  -> Day Sac USB-C to USB-C 45W Sac Nhanh PD Cho iPhone 15 16 17 iPad MacBook');
+  L.push('');
 
-  // ─ PHAN 1: TEN SAN PHAM ─
-  lines.push('━━━━ PHAN 1: TEN SAN PHAM CHUAN SEO SHOPEE ━━━━');
-  lines.push('');
-  lines.push('Yeu cau bat buoc:');
-  lines.push('  • Toi da 120 ky tu (Shopee cat bo neu qua dai)');
-  lines.push('  • Khong dung: VIET HOA TOAN BO, !!!!!, spam tu khoa lap lai');
-  lines.push('  • Khong chen: so dien thoai, link, ten shop, cam ket gia re');
-  lines.push('  • Bat buoc phu hop voi anh + thong so (Shopee co the phat neu sai)');
-  lines.push('');
-  lines.push('Cong thuc toi uu cho phu kien dien tu (ap dung lien quan):');
-  lines.push('  [Tinh nang noi bat] + [Chat lieu / Tieu chuan] + [Ten san pham] + [Dong may tuong thich]');
-  lines.push('');
-  lines.push('Quy tac viet ten SEO tot:');
-  lines.push('  ✓ Dat tu khoa nguoi mua hay tim truoc (VD: "Chong Soc", "Khong Vang", "Sieu Mong")');
-  lines.push('  ✓ Liet ke du dong may: "iPhone 17 16 15 14 13 Pro Max Plus" — moi dong = 1 cu phap tim kiem');
-  lines.push('  ✓ Co the them 1 tag mo ta cuoi (VD: "- Chinh Hang", "- 9H", "- Mong 0.26mm")');
-  lines.push('  ✓ Viet hoa dau chu moi tu (Title Case), tu nhien nhu ten san pham that');
-  lines.push('  ✓ Neu co thuong hieu (VD: Anank, Kuzoom, WK) — giu nguyen trong ten');
-  lines.push('  ✗ Khong dung "-", "/", "+" lien tuc; khong spam: "tot nhat gia re hang dau"');
-  lines.push('');
-  lines.push('Vi du ten dung chuan Shopee (phu kien Apple):');
-  lines.push('  → "Kinh Cuong Luc Tu Dan Chong Bui Thong Minh iPhone 17 16 15 14 13 12 Pro Max Plus"');
-  lines.push('  → "Op Silicon Chong Ban Lot Nhung Co Sac Tu Tinh Bao Ve Camera iPhone 17 16 15 14 Pro Max"');
-  lines.push('  → "Cuong Luc Camera Kuzoom AR Chong Tray Sieu Net iPhone 17 16 15 14 13 Pro Max Plus"');
-  lines.push('  → "Day Sac USB-C to USB-C 45W Sac Nhanh Ho Tro PD Cho iPhone iPad MacBook"');
-  lines.push('');
+  // ─ PHAN 2: MO TA ─
+  L.push('━━━ PHAN 2: MO TA SAN PHAM CHUAN SHOPEE ━━━');
+  L.push('');
+  L.push('Shopee Uni (banhang.shopee.vn) quy dinh mo ta can du 3 phan chinh:');
+  L.push('  (1) Thong so ky thuat san pham - chat lieu, trong luong, kich thuoc, cac dac tinh');
+  L.push('  (2) Cong dung va loi ich - giai thich tinh nang, loi ich, huong dan su dung');
+  L.push('  (3) Bao hanh (neu co) - thoi gian bao hanh, dieu kien, chinh sach doi tra');
+  L.push('');
+  L.push('Viet theo cau truc sau, KHONG dich may, KHONG sao chep tieng Trung:');
+  L.push('');
+  L.push('┌─ BAT DAU MO TA ─────────────────────────────────────────────────┐');
+  L.push('[THONG SO KY THUAT]');
+  L.push('• Ten san pham: [ten day du, chinh xac khop voi ten listing]');
+  L.push('• Thuong hieu: [neu co]');
+  L.push('• Chat lieu: [VD: "Kinh cuong luc cao cap, do cung 9H, day 0.26mm, trong suot 99%"]');
+  L.push('• [Cac thong so quan trong khac lay tu phan THONG SO KY THUAT ben tren]');
+  L.push('• Tuong thich: [VD: "iPhone 11 / 12 / 13 / 14 / 15 / 16 / 17 — tat ca phien ban"]');
+  L.push('• Xuat xu: [neu biet]');
+  L.push('• Bo san pham bao gom: [liet ke thu gi kem theo]');
+  L.push('');
+  L.push('[UU DIEM NOI BAT]');
+  L.push('• [Loi ich 1 — viet theo ket qua nguoi dung nhan duoc]');
+  L.push('  SAI: "Chat lieu silicon cao cap"');
+  L.push('  DUNG: "Chat lieu silicon cao cap, cam em tay, han che tron truot hieu qua"');
+  L.push('• [Loi ich 2]');
+  L.push('  SAI: "Kinh cuong luc 9H"');
+  L.push('  DUNG: "Do cung 9H chong tray xuoc manh, giu man hinh dep nhu moi sau thoi gian dai"');
+  L.push('• [Loi ich 3]');
+  L.push('• [Loi ich 4]');
+  L.push('• [Loi ich 5 — toi da 7 diem, moi diem ngan 1 dong, manh lac, thiet thuc]');
+  L.push('');
+  L.push('[BAO HANH & CAM KET]');
+  L.push('• San pham bao hanh: [thoi gian] — [dieu kien cu the]');
+  L.push('• [Chinh sach doi tra, VD: "Doi tra trong 7 ngay neu loi san xuat"]');
+  L.push('• [Neu khong co bao hanh: bo qua muc nay hoan toan]');
+  L.push('└─────────────────────────────────────────────────────────────────┘');
+  L.push('');
+  L.push('QUY TAC VIET MO TA THU HUT — THEO CHUAN SHOPEE UNI:');
+  L.push('  [+] Thong so lay tu 1688 chinh xac hon Taobao — uu tien dung neu co');
+  L.push('  [+] "Uu diem noi bat": viet theo goc nhin NGUOI MUA, nhan vao KET QUA, TRAI NGHIEM');
+  L.push('  [+] Moi diem dung "•", toi da 1-2 dong, don gian, de hieu');
+  L.push('  [+] Neu co bao hanh: viet ro rang thoi gian va dieu kien');
+  L.push('  [-] KHONG ghi: so dien thoai, link ngoai Shopee, dia chi cua hang');
+  L.push('  [-] KHONG hua hen qua muc, KHONG tu them tinh nang khong co trong thong so goc');
+  L.push('  [-] KHONG dung !!! hay "gia soc / re nhat / hang dau Viet Nam"');
+  L.push('  [-] KHONG viet hoa ca doan, KHONG spam tu khoa');
+  L.push('');
+  L.push('━━━ PHAN 3: HASHTAG ━━━');
+  L.push('Tao 3-5 hashtag thich hop nhat cho san pham nay.');
+  L.push('Format: #tukhoakhongdau  (VD: #kinhcuongluc #oplung #phuKienIphone)');
+  L.push('Chi lay hashtag that su lien quan — KHONG spam hashtag nganh hang khac.');
+  L.push('');
+  L.push('================================================================');
+  L.push('SAU KHI CLAUDE TRA VE:');
+  L.push('  1. Copy ten san pham → dan vao o "Ten san pham" tren Shopee Seller Center');
+  L.push('  2. Copy mo ta → dan vao o "Mo ta san pham"');
+  L.push('  3. Copy hashtag → dan vao o "Hashtag"');
+  L.push('  4. Tai anh bang nut ben duoi truoc khi len listing');
+  L.push('================================================================');
 
-  // ─ PHAN 2: MO TA SAN PHAM ─
-  lines.push('━━━━ PHAN 2: MO TA SAN PHAM CHUAN SHOPEE ━━━━');
-  lines.push('');
-  lines.push('Shopee Uni quy dinh mo ta phai co du 3 yeu to:');
-  lines.push('  (1) Thong so ky thuat cu the (chat lieu, trong luong, kich thuoc, do cung...)');
-  lines.push('  (2) Cong dung va loi ich thuc te (giai thich tinh nang giup gi cho nguoi dung)');
-  lines.push('  (3) Bao hanh neu co / cam ket chat luong');
-  lines.push('');
-  lines.push('Viet theo cau truc nay — KHONG copy nguyen xi tu tieng Trung, KHONG dich may:');
-  lines.push('');
-  lines.push('--- CUT HERE ---');
-  lines.push('THONG TIN SAN PHAM');
-  lines.push('• Ten: [ten day du, khop voi ten listing]');
-  lines.push('• Chat lieu: [cu the, VD: "Kinh cuong luc cao cap, do cung 9H, day 0.26mm"]');
-  lines.push('• [Them cac thong so quan trong khac tu phan THONG SO KY THUAT o tren]');
-  lines.push('• Tuong thich: [liet ke day du dong may, VD: "iPhone 11 / 12 / 13 / 14 / 15 / 16 / 17 series"]');
-  lines.push('');
-  lines.push('LOI ICH NOI BAT');
-  lines.push('• [Loi ich 1 — viet tu goc nhin nguoi dung: "Giup ban...", "Bao ve...", "De dang..."]');
-  lines.push('• [Loi ich 2]');
-  lines.push('• [Loi ich 3]');
-  lines.push('• [Loi ich 4]');
-  lines.push('• [Loi ich 5 — toi da 7 diem, moi diem 1 dong, ngan gon manh lac]');
-  lines.push('');
-  lines.push('BAO HANH & CAM KET');
-  lines.push('• [Chinh sach bao hanh neu co, VD: "Bao hanh 1 nam loi san xuat"]');
-  lines.push('• [Cam ket chat luong / doi tra neu hang loi]');
-  lines.push('--- CUT HERE ---');
-  lines.push('');
-  lines.push('Quy tac viet mo ta thu hut:');
-  lines.push('  ✓ Dung "•" hoac "-" dau dong, moi diem toi da 1 dong');
-  lines.push('  ✓ LOI ICH: nhan manh ket qua nguoi dung nhan duoc, khong chi liet ke tinh nang');
-  lines.push('     Sai: "Chat lieu silicon cao cap"  →  Dung: "Chat lieu silicon cao cap, cam em tay, han che tron truot"');
-  lines.push('     Sai: "Kinh cuong luc 9H"          →  Dung: "Do cung 9H chong tray xuoc manh, giu man hinh dep nhu moi"');
-  lines.push('  ✓ Thong so 1688 chinh xac hon → uu tien dung neu co');
-  lines.push('  ✓ Giu nguyen thong so ky thuat (do day, do cung, kich thuoc) — KHONG tu them');
-  lines.push('  ✓ Neu san pham co bao hanh: viet ro thoi gian va dieu kien');
-  lines.push('  ✗ KHONG ghi: so dien thoai, link ngoai Shopee, dia chi cua hang');
-  lines.push('  ✗ KHONG viet hoa ca doan, KHONG dung !!! hay "gia soc gia re nhat"');
-  lines.push('  ✗ KHONG hua hon qua muc hoac tu them cong dung khong co trong thong so');
-  lines.push('');
-
-  lines.push('━━━━ HASHTAG GOI Y (paste vao o Hashtag tren Shopee) ━━━━');
-  lines.push('Tao 3-5 hashtag lien quan nhat den san pham nay.');
-  lines.push('Dung #, khong dau cach, viet khong dau, VD: #kinhcuongluc #phuKienIPhone #oplung');
-  lines.push('');
-  lines.push('════════════════════════════════════════════════════════════════');
-  lines.push('SAU KHI CLAUDE TRA VE → copy ten + mo ta vao Shopee Seller Center');
-  lines.push('Tai anh bang nut ben duoi truoc khi len listing');
-  lines.push('════════════════════════════════════════════════════════════════');
-
-  return lines.join('\n');
+  return L.join('\n');
 }
 
-// ── Image preview strip ───────────────────────────────────────────────────────
+// ── Image preview strip ────────────────────────────────────────────────────────
 function showImageStrip(images) {
   imgStrip.innerHTML = '';
-  if (images.length === 0) { imgStrip.style.display = 'none'; return; }
+  if (!images.length) { imgStrip.style.display = 'none'; return; }
   imgStrip.style.display = 'flex';
   images.slice(0, 9).forEach(url => {
     const img = document.createElement('img');
@@ -178,97 +194,102 @@ function showImageStrip(images) {
   });
 }
 
-// ── Download ──────────────────────────────────────────────────────────────────
-function getExt(url) { return (url.match(/\.(jpg|jpeg|png|webp)$/i) || ['', 'jpg'])[1].toLowerCase(); }
+// ── Download ───────────────────────────────────────────────────────────────────
+function getExt(url) { return (url.match(/\.(jpg|jpeg|png|webp)$/i) || ['','jpg'])[1].toLowerCase(); }
 
 async function downloadBatch(images, prefix, progressCb) {
   let ok = 0;
   for (let i = 0; i < images.length; i++) {
-    const url = images[i], ext = getExt(url), num = String(i + 1).padStart(2, '0');
-    progressCb(i + 1, images.length);
+    const url = images[i], ext = getExt(url), num = String(i+1).padStart(2,'0');
+    progressCb(i+1, images.length);
     try {
-      await new Promise((resolve, reject) => {
-        chrome.downloads.download({ url, filename: 'njoy-import/' + prefix + '_' + num + '.' + ext, conflictAction: 'overwrite' },
-          id => { if (chrome.runtime.lastError) reject(chrome.runtime.lastError); else resolve(id); });
-      });
+      await new Promise((res, rej) => chrome.downloads.download(
+        { url, filename: 'njoy-import/' + prefix + '_' + num + '.' + ext, conflictAction: 'overwrite' },
+        id => chrome.runtime.lastError ? rej(chrome.runtime.lastError) : res(id)
+      ));
       ok++;
-    } catch (e) { console.warn('Download failed:', url, e.message); }
+    } catch(e) { console.warn('DL failed:', url, e.message); }
     await delay(350);
   }
   return ok;
 }
 
-function setDownloadButtons(disabled) { dlMainBtn.disabled = disabled; dlDescBtn.disabled = disabled; dlAllBtn.disabled = disabled; }
+function setDL(disabled) { [dlMainBtn,dlDescBtn,dlAllBtn].forEach(b => b.disabled = disabled); }
 
 dlMainBtn.addEventListener('click', async () => {
   if (!currentData?.images?.length) return;
-  setDownloadButtons(true); setDlProgress('Dang tai anh chinh...');
-  const ok = await downloadBatch(currentData.images, 'main', (i, n) => setDlProgress('Anh chinh ' + i + '/' + n + '...'));
+  setDL(true); setDlProgress('Dang tai anh chinh...');
+  const ok = await downloadBatch(currentData.images, 'main', (i,n) => setDlProgress('Anh chinh ' + i + '/' + n + '...'));
   setDlProgress('Da tai ' + ok + ' anh chinh -> Downloads/njoy-import/', 'ok');
-  setDownloadButtons(false);
+  setDL(false);
 });
 
 dlDescBtn.addEventListener('click', async () => {
   if (!currentData?.descImages?.length) return;
-  setDownloadButtons(true); setDlProgress('Dang tai anh mo ta...');
-  const ok = await downloadBatch(currentData.descImages, 'desc', (i, n) => setDlProgress('Anh mo ta ' + i + '/' + n + '...'));
+  setDL(true); setDlProgress('Dang tai anh mo ta...');
+  const ok = await downloadBatch(currentData.descImages, 'desc', (i,n) => setDlProgress('Anh mo ta ' + i + '/' + n + '...'));
   setDlProgress('Da tai ' + ok + ' anh mo ta -> Downloads/njoy-import/', 'ok');
-  setDownloadButtons(false);
+  setDL(false);
 });
 
 dlAllBtn.addEventListener('click', async () => {
   if (!currentData) return;
-  setDownloadButtons(true);
+  setDL(true);
   const all = [
-    ...currentData.images.map((u, i) => ({ url: u, prefix: 'main', idx: i + 1 })),
-    ...currentData.descImages.map((u, i) => ({ url: u, prefix: 'desc', idx: i + 1 }))
+    ...currentData.images.map((u,i) => ({url:u, prefix:'main', idx:i+1})),
+    ...currentData.descImages.map((u,i) => ({url:u, prefix:'desc', idx:i+1}))
   ];
   let done = 0;
-  for (const { url, prefix, idx } of all) {
-    const ext = getExt(url), filename = 'njoy-import/' + prefix + '_' + String(idx).padStart(2,'0') + '.' + ext;
+  for (const {url, prefix, idx} of all) {
+    const fn = 'njoy-import/' + prefix + '_' + String(idx).padStart(2,'0') + '.' + getExt(url);
     setDlProgress('Dang tai ' + (++done) + '/' + all.length + '...');
     try {
-      await new Promise((resolve, reject) => {
-        chrome.downloads.download({ url, filename, conflictAction: 'overwrite' },
-          id => { if (chrome.runtime.lastError) reject(chrome.runtime.lastError); else resolve(id); });
-      });
-    } catch (e) { console.warn('skip:', url); }
+      await new Promise((res,rej) => chrome.downloads.download(
+        {url, filename:fn, conflictAction:'overwrite'},
+        id => chrome.runtime.lastError ? rej(chrome.runtime.lastError) : res(id)
+      ));
+    } catch(e) { console.warn('skip:', url); }
     await delay(350);
   }
   setDlProgress('Xong! ' + done + ' anh -> Downloads/njoy-import/', 'ok');
-  setDownloadButtons(false);
+  setDL(false);
 });
 
-// ── Extraction ────────────────────────────────────────────────────────────────
+// ── Extraction ─────────────────────────────────────────────────────────────────
 extractBtn.addEventListener('click', async () => {
-  setStatus('Dang trich xuat...'); copyBtn.disabled = true; output.value = '';
-  dlSection.style.display = 'none'; imgStrip.style.display = 'none'; hidePrice();
+  setStatus('Dang trich xuat...'); copyBtn.disabled = true;
+  output.value = ''; dlSection.style.display = 'none';
+  imgStrip.style.display = 'none'; hidePrice();
+
   let tab;
-  try { [tab] = await chrome.tabs.query({ active: true, currentWindow: true }); }
-  catch { setStatus('Khong lay duoc tab hien tai.', 'err'); return; }
+  try { [tab] = await chrome.tabs.query({active:true, currentWindow:true}); }
+  catch { setStatus('Khong lay duoc tab.', 'err'); return; }
+
   const url = tab.url || '';
   if (!url.includes('taobao.com') && !url.includes('1688.com') && !url.includes('tmall.com')) {
     setStatus('Chi hoat dong tren taobao.com / 1688.com / tmall.com', 'err'); return;
   }
-  try { await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['content.js'] }); } catch { /* injected */ }
+
+  try { await chrome.scripting.executeScript({target:{tabId:tab.id}, files:['content.js']}); } catch {}
+
   try {
-    const resp = await chrome.tabs.sendMessage(tab.id, { action: 'extract' });
+    const resp = await chrome.tabs.sendMessage(tab.id, {action:'extract'});
     if (!resp?.ok) throw new Error(resp?.error || 'Khong nhan duoc du lieu');
     currentData = resp.data;
     output.value = formatOutput(currentData);
     copyBtn.disabled = false;
     if (currentData.price) showPrice(currentData.price);
     showImageStrip(currentData.images);
-    const mainCount = currentData.images.length, descCount = currentData.descImages.length;
-    dlMainBtn.textContent = 'Anh chinh (' + mainCount + ')';
-    dlDescBtn.textContent = 'Anh mo ta (' + descCount + ')';
-    dlAllBtn.textContent  = 'Tai tat ca (' + (mainCount + descCount) + ')';
-    dlMainBtn.disabled = mainCount === 0; dlDescBtn.disabled = descCount === 0; dlAllBtn.disabled = mainCount + descCount === 0;
+    const mc = currentData.images.length, dc = currentData.descImages.length;
+    dlMainBtn.textContent = 'Anh chinh (' + mc + ')';
+    dlDescBtn.textContent = 'Anh mo ta (' + dc + ')';
+    dlAllBtn.textContent  = 'Tai tat ca (' + (mc+dc) + ')';
+    dlMainBtn.disabled = !mc; dlDescBtn.disabled = !dc; dlAllBtn.disabled = !(mc+dc);
     dlSection.style.display = 'block'; setDlProgress('');
-    const priceInfo = currentData.price ? ' · ' + currentData.price.cnyStr + ' = ' + currentData.price.vndStr : '';
-    setStatus('OK [' + currentData.platform.toUpperCase() + ']: ' + currentData.specs.length + ' thong so · ' + mainCount + ' anh chinh · ' + descCount + ' anh mo ta' + priceInfo, 'ok');
-  } catch (e) {
-    setStatus('Loi: ' + e.message + ' - Thu reload trang roi bam lai.', 'err');
+    const pi = currentData.price ? ' | ' + currentData.price.cnyStr + ' = ' + currentData.price.vndStr : '';
+    setStatus('[' + currentData.platform.toUpperCase() + '] ' + currentData.specs.length + ' thong so | ' + mc + ' anh chinh | ' + dc + ' anh mo ta' + pi, 'ok');
+  } catch(e) {
+    setStatus('Loi: ' + e.message + ' — Thu reload trang roi bam lai.', 'err');
   }
 });
 
