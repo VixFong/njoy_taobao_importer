@@ -1,25 +1,23 @@
-const extractBtn    = document.getElementById('extractBtn');
-const copyBtn       = document.getElementById('copyBtn');
-const copyDescBtn   = document.getElementById('copyDescBtn');
+const extractBtn = document.getElementById('extractBtn');
+const copyBtn = document.getElementById('copyBtn');
+const copyDescBtn = document.getElementById('copyDescBtn');
 const copyShopeeBtn = document.getElementById('copyShopeeBtn');
-const output        = document.getElementById('output');
-const statusEl      = document.getElementById('status');
-const dlSection     = document.getElementById('dlSection');
-const dlMainBtn     = document.getElementById('dlMainBtn');
-const dlDescBtn     = document.getElementById('dlDescBtn');
-const dlAllBtn      = document.getElementById('dlAllBtn');
-const dlProgress    = document.getElementById('dlProgress');
-const imgStrip      = document.getElementById('imgStrip');
-const priceBox      = document.getElementById('priceBox');
+const output = document.getElementById('output');
+const statusEl = document.getElementById('status');
+const dlSection = document.getElementById('dlSection');
+const dlMainBtn = document.getElementById('dlMainBtn');
+const dlDescBtn = document.getElementById('dlDescBtn');
+const dlAllBtn = document.getElementById('dlAllBtn');
+const dlProgress = document.getElementById('dlProgress');
+const imgStrip = document.getElementById('imgStrip');
+const priceBox = document.getElementById('priceBox');
 
 let currentData = null;
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
 function setStatus(msg, type) { if(type===undefined)type=''; statusEl.textContent = msg; statusEl.className = type; }
 function setDlProgress(msg, type) { if(type===undefined)type=''; dlProgress.textContent = msg; dlProgress.className = type; }
 function delay(ms) { return new Promise(function(r){ setTimeout(r, ms); }); }
 
-// Kiểm tra ký tự CJK (tiếng Trung/Nhật/Hàn) dùng charCode thay vì regex Unicode
 function hasChinese(str) {
   for (var i = 0; i < str.length; i++) {
     var c = str.charCodeAt(i);
@@ -31,7 +29,6 @@ function hasChinese(str) {
   return false;
 }
 
-// Xóa ký tự CJK khỏi chuỗi
 function removeChinese(str) {
   var result = '';
   for (var i = 0; i < str.length; i++) {
@@ -44,7 +41,60 @@ function removeChinese(str) {
   return result;
 }
 
-// ── Price display ──────────────────────────────────────────────────────────────
+function dichTenSpec(key) {
+  var k = key.toLowerCase().trim();
+  var map = [
+    ['brand','Thuong hieu'],['hang','Thuong hieu'],['nhan hieu','Thuong hieu'],
+    ['chat lieu','Chat lieu'],['material','Chat lieu'],['vat lieu','Chat lieu'],
+    ['color','Mau sac'],['colour','Mau sac'],['mau','Mau sac'],
+    ['size','Kich thuoc'],['kich thuoc','Kich thuoc'],['kich co','Kich thuoc'],['dimension','Kich thuoc'],
+    ['weight','Trong luong'],['trong luong','Trong luong'],['can nang','Trong luong'],
+    ['power','Cong suat'],['cong suat','Cong suat'],['watt','Cong suat'],
+    ['voltage','Dien ap'],['dien ap','Dien ap'],['volt','Dien ap'],
+    ['current','Dong dien'],['dong dien','Dong dien'],['amp','Dong dien'],
+    ['capacity','Dung luong'],['dung luong','Dung luong'],
+    ['warranty','Bao hanh'],['bao hanh','Bao hanh'],
+    ['origin','Xuat xu'],['xuat xu','Xuat xu'],['made in','Xuat xu'],
+    ['compatible','Tuong thich'],['tuong thich','Tuong thich'],
+    ['connect','Ket noi'],['ket noi','Ket noi'],['interface','Cong giao tiep'],
+    ['charging','Sac'],['charge','Sac'],['sac','Sac'],
+    ['input','Dau vao'],['output','Dau ra'],
+    ['length','Chieu dai'],['chieu dai','Chieu dai'],
+    ['width','Chieu rong'],['chieu rong','Chieu rong'],
+    ['height','Chieu cao'],['chieu cao','Chieu cao'],
+    ['type','Loai'],['loai','Loai'],
+    ['model','Model'],['ma sp','Ma san pham'],['sku','Ma san pham'],
+    ['package','Dong goi'],['dong goi','Dong goi'],
+    ['quantity','So luong'],['so luong','So luong'],
+    ['temp','Nhiet do'],['nhiet do','Nhiet do'],
+    ['function','Tinh nang'],['tinh nang','Tinh nang'],['chuc nang','Tinh nang'],
+    ['application','Ung dung'],['ung dung','Ung dung'],
+    ['style','Phong cach'],['phong cach','Phong cach'],
+    ['feature','Dac diem'],['dac diem','Dac diem']
+  ];
+  for (var i = 0; i < map.length; i++) {
+    if (k.indexOf(map[i][0]) !== -1) return map[i][1];
+  }
+  var clean = removeChinese(key).replace(/s+/g,' ').trim();
+  return clean.length > 1 ? clean : key.trim();
+}
+
+function formatSpecLine(specStr) {
+  var colonIdx = specStr.indexOf(':');
+  var key, val;
+  if (colonIdx > 0) {
+    key = specStr.substring(0, colonIdx).trim();
+    val = specStr.substring(colonIdx + 1).trim();
+  } else {
+    var clean = removeChinese(specStr).replace(/s+/g,' ').trim();
+    return clean.length > 2 ? ('• ' + clean) : '';
+  }
+  var keyViet = dichTenSpec(key);
+  var valClean = removeChinese(val).replace(/s+/g,' ').trim();
+  if (valClean.length < 1) valClean = val.trim();
+  if (valClean.length < 1) return '';
+  return '• ' + keyViet + ': ' + valClean;
+}
 function showPrice(price) {
   if (!price || !priceBox) return;
   priceBox.style.display = 'flex';
@@ -53,37 +103,18 @@ function showPrice(price) {
 }
 function hidePrice() { if (priceBox) priceBox.style.display = 'none'; }
 
-// ── Enable/disable copy buttons ────────────────────────────────────────────────
 function setCopyButtons(disabled) {
-  copyBtn.disabled       = disabled;
-  copyDescBtn.disabled   = disabled;
+  copyBtn.disabled = disabled;
+  copyDescBtn.disabled = disabled;
   copyShopeeBtn.disabled = disabled;
 }
 
-// ── Trích xuất giá trị theo key từ specs[] ────────────────────────────────────
-function specVal(specs) {
-  var keys = Array.prototype.slice.call(arguments, 1);
-  for (var i = 0; i < specs.length; i++) {
-    var lower = specs[i].toLowerCase();
-    for (var j = 0; j < keys.length; j++) {
-      if (lower.indexOf(keys[j].toLowerCase()) !== -1) {
-        var parts = specs[i].split(/[:]/);
-        if (parts.length >= 2) return parts.slice(1).join(':').trim();
-        return specs[i].trim();
-      }
-    }
-  }
-  return '';
-}
-
-// ── Sinh tên sản phẩm Shopee từ data ──────────────────────────────────────────
 function buildShopeeName(d) {
-  var raw = removeChinese(d.title || '').replace(/\s+/g, ' ').trim();
+  var raw = removeChinese(d.title || '').replace(/s+/g, ' ').trim();
   if (raw.length >= 10) return raw.substring(0, 120);
   return (d.title || '').substring(0, 120);
 }
 
-// ── Sinh hashtag ───────────────────────────────────────────────────────────────
 function buildHashtags(d) {
   var tags = [];
   var title = (d.title || '').toLowerCase();
@@ -100,135 +131,134 @@ function buildHashtags(d) {
   return tags.slice(0, 5).join(' ');
 }
 
-// ── Sinh mô tả chuẩn Shopee từ data thực tế ───────────────────────────────────
 function buildShopeeDesc(d) {
-  var L = [];
+  var lines = [];
   var sp = d.specs || [];
   var vr = d.variants || [];
 
-  // PHẦN 1: THÔNG SỐ KỸ THUẬT
-  L.push('--- THONG SO KY THUAT ---');
-  var cleanTitle = removeChinese(d.title || '').replace(/\s+/g, ' ').trim();
-  L.push('* Ten san pham: ' + (cleanTitle || d.title || 'Xem anh'));
-
+  lines.push('THONG SO KY THUAT');
+  lines.push('------------------');
+  var cleanTitle = removeChinese(d.title || '').replace(/s+/g, ' ').trim();
+  if (cleanTitle.length >= 5) {
+    lines.push('• Ten san pham: ' + cleanTitle.substring(0, 100));
+  }
   if (sp.length > 0) {
     for (var i = 0; i < sp.length; i++) {
-      var latinPart = removeChinese(sp[i]).replace(/\s+/g, ' ').trim();
-      if (latinPart.length > 3) {
-        L.push('* ' + latinPart);
-      } else {
-        L.push('* ' + sp[i]);
-      }
+      var line = formatSpecLine(sp[i]);
+      if (line.length > 3) lines.push(line);
     }
   }
-
   if (vr.length > 0) {
-    L.push('* Phien ban / mau sac: ' + vr.slice(0, 8).join(', '));
+    var vrClean = [];
+    for (var v = 0; v < vr.length && v < 8; v++) {
+      var vClean = removeChinese(vr[v]).replace(/s+/g,' ').trim();
+      if (vClean.length > 0) vrClean.push(vClean);
+    }
+    if (vrClean.length > 0) lines.push('• Phien ban / Mau sac: ' + vrClean.join(', '));
   }
-
   if (d.price) {
-    L.push('* Gia goc: ' + d.price.cnyStr + ' ~ ' + d.price.vndStr);
+    lines.push('• Gia tham khao: ' + d.price.cnyStr + ' (tuong duong ~' + d.price.vndStr + ')');
   }
+  lines.push('');
 
-  L.push('');
-
-  // PHẦN 2: CÔNG DỤNG VÀ LỢI ÍCH
-  L.push('--- CONG DUNG VA LOI ICH ---');
-
-  if (d.desc) {
-    var sentences = d.desc.split(/[.!\n|]+/);
-    var count = 0;
-    var used = {};
-    for (var k = 0; k < sentences.length && count < 5; k++) {
-      var s = sentences[k].replace(/\s+/g, ' ').trim();
-      // Bỏ câu toàn tiếng Trung hoặc quá ngắn/dài
-      if (s.length < 10 || s.length > 200) continue;
-      var latinOnly = removeChinese(s).trim();
-      if (latinOnly.length < 5) continue; // bỏ nếu hầu hết là tiếng Trung
-      if (used[s]) continue;
-      used[s] = true;
-      L.push('* ' + latinOnly);
-      count++;
+  lines.push('TINH NANG & CONG DUNG');
+  lines.push('---------------------');
+  var featureAdded = 0;
+  for (var s = 0; s < sp.length; s++) {
+    var lowerSp = sp[s].toLowerCase();
+    if (lowerSp.indexOf('tinh nang') !== -1 || lowerSp.indexOf('function') !== -1 ||
+        lowerSp.indexOf('application') !== -1 || lowerSp.indexOf('ung dung') !== -1 ||
+        lowerSp.indexOf('feature') !== -1 || lowerSp.indexOf('chuc nang') !== -1) {
+      var fLine = formatSpecLine(sp[s]);
+      if (fLine.length > 3) { lines.push(fLine); featureAdded++; }
     }
-    if (count === 0) {
-      L.push('* San pham chat luong cao, thiet ke tinh te, su dung ben bi');
+  }
+  var titleClean = removeChinese(d.title || '').replace(/s+/g,' ').trim().toLowerCase();
+  if (titleClean.indexOf('wireless') !== -1 || titleClean.indexOf('khong day') !== -1) {
+    lines.push('• Sac khong day tien loi, khong can day cap ruong rac');
+    featureAdded++;
+  }
+  if (titleClean.indexOf('fast') !== -1 || titleClean.indexOf('nhanh') !== -1 || titleClean.indexOf('quick') !== -1) {
+    lines.push('• Ho tro sac nhanh, tiet kiem thoi gian cho thiet bi');
+    featureAdded++;
+  }
+  if (titleClean.indexOf('fold') !== -1 || titleClean.indexOf('gap') !== -1) {
+    lines.push('• Thiet ke gap gon, de mang theo khi di chuyen');
+    featureAdded++;
+  }
+  if (titleClean.indexOf('stand') !== -1 || titleClean.indexOf('gia do') !== -1) {
+    lines.push('• Gia do tien loi, de man hinh theo goc nhin thoai mai');
+    featureAdded++;
+  }
+  if (featureAdded === 0) {
+    lines.push('• San pham chat luong cao, duoc kiem tra ky truoc khi giao');
+    lines.push('• Thiet ke hien dai, phu hop nhieu nhu cau su dung');
+    lines.push('• De su dung, khong can huong dan phuc tap');
+  }
+  lines.push('');
+
+  lines.push('BAO HANH & CAM KET');
+  lines.push('------------------');
+  var bhFound = false;
+  for (var b = 0; b < sp.length; b++) {
+    var bLower = sp[b].toLowerCase();
+    if (bLower.indexOf('bao hanh') !== -1 || bLower.indexOf('warranty') !== -1) {
+      var bhLine = formatSpecLine(sp[b]);
+      if (bhLine.length > 3) { lines.push(bhLine); bhFound = true; break; }
     }
-  } else {
-    var mat = specVal(sp, 'chat lieu', 'material');
-    if (mat) L.push('* Chat lieu ' + removeChinese(mat).trim() + ', ben bi va an toan khi su dung');
-    var size = specVal(sp, 'kich thuoc', 'size', 'dimension');
-    if (size) L.push('* Kich thuoc gon nhe ' + removeChinese(size).trim() + ', de mang theo');
-    L.push('* Thiet ke hien dai, phu hop voi nhieu phong cach su dung');
-    L.push('* De su dung, khong can huong dan phuc tap');
   }
+  if (!bhFound) lines.push('• Bao hanh: 3 thang loi do nha san xuat');
+  lines.push('• Doi tra: Trong 7 ngay neu loi do nha san xuat');
+  lines.push('• Kiem tra ky san pham truoc khi gui di');
+  lines.push('• Ho tro khach hang 24/7, giai quyet nhanh moi van de');
 
-  L.push('');
-
-  // PHẦN 3: BẢO HÀNH
-  L.push('--- BAO HANH & CAM KET ---');
-  var bh = specVal(sp, 'bao hanh', 'warranty');
-  if (bh) {
-    L.push('* Bao hanh: ' + removeChinese(bh).trim());
-  } else {
-    L.push('* Bao hanh: 3 thang loi do nha san xuat');
-  }
-  L.push('* Doi tra: Trong 7 ngay neu loi do nha san xuat');
-  L.push('* San pham duoc kiem tra ky truoc khi giao');
-
-  return L.join('\n');
+  return lines.join('
+');
 }
 
-// ── Sinh section chuẩn Shopee đầy đủ ─────────────────────────────────────────
 function formatShopeeSection(d) {
-  var L = [];
-
-  L.push('=== MO TA CHUAN SHOPEE (DA DIEN SAN TU DU LIEU ' + d.platform.toUpperCase() + ') ===');
-  L.push('');
-  L.push('--- TEN SAN PHAM (de xuat, toi da 120 ky tu) ---');
-  L.push(buildShopeeName(d));
-  L.push('');
-  L.push(buildShopeeDesc(d));
-  L.push('');
-  L.push('--- HASHTAG ---');
-  L.push(buildHashtags(d));
-  L.push('');
-  L.push('Luu y: Kiem tra lai thong so truoc khi dang ban.');
-  L.push('Thong so tu ' + (d.platform === '1688' ? '1688 (chinh xac cao)' : 'Taobao (can kiem tra lai)') + '.');
-
-  return L.join('\n');
+  var lines = [];
+  lines.push('========================================');
+  lines.push('MO TA CHUAN SHOPEE');
+  lines.push('(Du lieu tu ' + (d.platform === '1688' ? '1688' : 'Taobao') + ' - Da viet lai bang tieng Viet)');
+  lines.push('========================================');
+  lines.push('');
+  lines.push('TEN SAN PHAM (toi da 120 ky tu):');
+  lines.push(buildShopeeName(d));
+  lines.push('');
+  lines.push(buildShopeeDesc(d));
+  lines.push('');
+  lines.push('HASHTAG:');
+  lines.push(buildHashtags(d));
+  lines.push('');
+  lines.push('Luu y: Kiem tra lai thong so truoc khi dang ban.');
+  return lines.join('
+');
 }
-
-// ── Output formatter (full) ────────────────────────────────────────────────────
 function formatOutput(d) {
   var L = [];
   var is1688 = d.platform === '1688';
-
   L.push('=== NJOY PRODUCT IMPORT ===');
   L.push('Platform : ' + d.platform.toUpperCase());
-  L.push('URL : ' + d.url);
+  L.push('URL      : ' + d.url);
   L.push('');
-
   if (d.price) {
     L.push('[ GIA ] ' + d.price.cnyStr + ' => ' + d.price.vndStr + ' (ty gia x4.100)');
     L.push('');
   }
-
   L.push('[ TIEU DE GOC - ' + d.platform.toUpperCase() + ' ]');
   L.push(d.title || '(khong lay duoc)');
   L.push('');
-
   if (d.specs && d.specs.length > 0) {
     L.push('[ THONG SO KY THUAT' + (is1688 ? ' - 1688 / DO CHINH XAC CAO' : ' - TAOBAO') + ' ]');
     for (var i = 0; i < d.specs.length; i++) L.push('  ' + d.specs[i]);
     L.push('');
   }
-
   if (d.variants && d.variants.length > 0) {
     L.push('[ VARIANTS ]');
     for (var j = 0; j < d.variants.length; j++) L.push('  ' + d.variants[j]);
     L.push('');
   }
-
   if (d.images && d.images.length > 0) {
     L.push('[ ANH CHINH - ' + d.images.length + ' anh ]');
     for (var a = 0; a < d.images.length; a++) L.push(String(a+1).padStart(2,'0') + '. ' + d.images[a]);
@@ -239,21 +269,18 @@ function formatOutput(d) {
     for (var b = 0; b < d.descImages.length; b++) L.push(String(b+1).padStart(2,'0') + '. ' + d.descImages[b]);
     L.push('');
   }
-
   if (d.desc) {
     L.push('[ MO TA GOC ]');
     L.push(d.desc);
     L.push('');
   }
-
   L.push('');
-  L.push('════════════════════════════════════════════════════════');
+  L.push('================================================');
   L.push(formatShopeeSection(d));
-
-  return L.join('\n');
+  return L.join('
+');
 }
 
-// ── Mô tả gốc ─────────────────────────────────────────────────────────────────
 function formatDescOnly(d) {
   var L = [];
   L.push('=== MO TA GOC - ' + d.platform.toUpperCase() + ' ===');
@@ -280,10 +307,10 @@ function formatDescOnly(d) {
     for (var k = 0; k < d.descImages.length; k++) L.push(String(k+1).padStart(2,'0') + '. ' + d.descImages[k]);
     L.push('');
   }
-  return L.join('\n');
+  return L.join('
+');
 }
 
-// ── Image preview strip ────────────────────────────────────────────────────────
 function showImageStrip(images) {
   imgStrip.innerHTML = '';
   if (!images || !images.length) { imgStrip.style.display = 'none'; return; }
@@ -296,9 +323,8 @@ function showImageStrip(images) {
   }
 }
 
-// ── Download ───────────────────────────────────────────────────────────────────
 function getExt(url) {
-  var m = url.match(/\.(jpg|jpeg|png|webp)$/i);
+  var m = url.match(/.(jpg|jpeg|png|webp)$/i);
   return m ? m[1].toLowerCase() : 'jpg';
 }
 
@@ -324,7 +350,7 @@ async function downloadBatch(images, prefix, progressCb) {
 function setDL(disabled) {
   dlMainBtn.disabled = disabled;
   dlDescBtn.disabled = disabled;
-  dlAllBtn.disabled  = disabled;
+  dlAllBtn.disabled = disabled;
 }
 
 dlMainBtn.addEventListener('click', async function() {
@@ -370,7 +396,6 @@ dlAllBtn.addEventListener('click', async function() {
   setDL(false);
 });
 
-// ── Extraction ─────────────────────────────────────────────────────────────────
 extractBtn.addEventListener('click', async function() {
   setStatus('Dang trich xuat...'); setCopyButtons(true);
   output.value = ''; dlSection.style.display = 'none';
@@ -400,8 +425,8 @@ extractBtn.addEventListener('click', async function() {
     var mc = (currentData.images || []).length;
     var dc = (currentData.descImages || []).length;
     dlMainBtn.textContent = 'Anh chinh (' + mc + ')';
-    dlDescBtn.textContent  = 'Anh mo ta (' + dc + ')';
-    dlAllBtn.textContent   = 'Tai tat ca (' + (mc+dc) + ')';
+    dlDescBtn.textContent = 'Anh mo ta (' + dc + ')';
+    dlAllBtn.textContent = 'Tai tat ca (' + (mc+dc) + ')';
     dlMainBtn.disabled = !mc; dlDescBtn.disabled = !dc; dlAllBtn.disabled = !(mc+dc);
     dlSection.style.display = 'block'; setDlProgress('');
     var pi = currentData.price ? ' | ' + currentData.price.cnyStr + ' = ' + currentData.price.vndStr : '';
@@ -411,14 +436,12 @@ extractBtn.addEventListener('click', async function() {
   }
 });
 
-// ── Copy toàn bộ ───────────────────────────────────────────────────────────────
 copyBtn.addEventListener('click', async function() {
   try { await navigator.clipboard.writeText(output.value); }
   catch(e) { output.select(); document.execCommand('copy'); }
   setStatus('Da copy toan bo!', 'ok');
 });
 
-// ── Copy mô tả gốc (Taobao/1688) ──────────────────────────────────────────────
 copyDescBtn.addEventListener('click', async function() {
   if (!currentData) return;
   var text = formatDescOnly(currentData);
@@ -427,11 +450,10 @@ copyDescBtn.addEventListener('click', async function() {
   setStatus('Da copy mo ta goc! (' + currentData.platform.toUpperCase() + ')', 'ok');
 });
 
-// ── Copy mô tả chuẩn Shopee (đã điền sẵn) ────────────────────────────────────
 copyShopeeBtn.addEventListener('click', async function() {
   if (!currentData) return;
   var text = formatShopeeSection(currentData);
   try { await navigator.clipboard.writeText(text); }
   catch(e) { output.value = text; output.select(); document.execCommand('copy'); output.value = formatOutput(currentData); }
-  setStatus('Da copy mo ta chuan Shopee (da dien san)!', 'ok');
+  setStatus('Da copy mo ta chuan Shopee (tieng Viet)!', 'ok');
 });
