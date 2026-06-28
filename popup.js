@@ -51,6 +51,7 @@ function dichTenSpec(key) {
     ['color','Mau sac'],['colour','Mau sac'],['mau','Mau sac'],
     ['size','Kich thuoc'],['kich thuoc','Kich thuoc'],['kich co','Kich thuoc'],['dimension','Kich thuoc'],
     ['weight','Trong luong'],['trong luong','Trong luong'],['can nang','Trong luong'],
+    ['net weight','Trong luong tinh'],['gross weight','Trong luong tong'],
     ['power','Cong suat'],['cong suat','Cong suat'],['watt','Cong suat'],
     ['voltage','Dien ap'],['dien ap','Dien ap'],['volt','Dien ap'],
     ['current','Dong dien'],['dong dien','Dong dien'],['amp','Dong dien'],
@@ -69,10 +70,16 @@ function dichTenSpec(key) {
     ['package','Dong goi'],['dong goi','Dong goi'],
     ['quantity','So luong'],['so luong','So luong'],
     ['temp','Nhiet do'],['nhiet do','Nhiet do'],
+    ['frequency','Tan so'],['tan so','Tan so'],['freq','Tan so'],
     ['function','Tinh nang'],['tinh nang','Tinh nang'],['chuc nang','Tinh nang'],
     ['application','Ung dung'],['ung dung','Ung dung'],
     ['style','Phong cach'],['phong cach','Phong cach'],
-    ['feature','Dac diem'],['dac diem','Dac diem']
+    ['feature','Dac diem'],['dac diem','Dac diem'],
+    ['protocol','Giao thuc sac'],['giao thuc','Giao thuc sac'],
+    ['efficiency','Hieu suat'],['hieu suat','Hieu suat'],
+    ['operating','Nhiet do hoat dong'],['storage','Nhiet do bao quan'],
+    ['carton','Kich thuoc thung'],['box','Kich thuoc hop'],
+    ['pcs','So luong/thung'],['qty','So luong']
   ];
   for (var i = 0; i < map.length; i++) {
     if (k.indexOf(map[i][0]) !== -1) return map[i][1];
@@ -96,6 +103,59 @@ function formatSpecLine(specStr) {
   if (valClean.length < 1) valClean = val.trim();
   if (valClean.length < 1) return '';
   return '- ' + keyViet + ': ' + valClean;
+}
+
+// Ham moi: trich xuat thong so ky thuat tu d.desc (phan mo ta text cua 1688/Taobao)
+// d.desc chua nhieu thong so dang "Ten: Gia tri" xen ke chu Trung
+function parseDescSpecs(desc) {
+  if (!desc) return [];
+  var results = [];
+  var seen = {};
+
+  // Tach thanh tung dong/doan nho
+  var lines = desc.split(/[
+|]+/);
+  for (var i = 0; i < lines.length; i++) {
+    var rawLine = lines[i].trim();
+    if (!rawLine || rawLine.length < 3) continue;
+
+    // Xu ly nhieu cap "Key: Val" tren 1 dong (vd: "Chat lieu: ABS  Tan so: 100-250KHz")
+    // Tach theo pattern: co dau ":" va co chu Latin hoac so truoc/sau
+    var segments = rawLine.split(/(?=[A-Za-z0-9][^:]*:)/);
+    for (var s = 0; s < segments.length; s++) {
+      var seg = segments[s].trim();
+      if (!seg || seg.length < 3) continue;
+
+      var cIdx = seg.indexOf(':');
+      if (cIdx <= 0) {
+        // Khong co dau hai cham - kiem tra xem co phai la thong so don le khong
+        // VD: "95*75*125mm" hay "90g" -> bo qua vi khong co ten
+        continue;
+      }
+
+      var rawKey = seg.substring(0, cIdx).trim();
+      var rawVal = seg.substring(cIdx + 1).trim();
+
+      // Bo key hoan toan la chu Trung
+      var keyLatin = removeChinese(rawKey).replace(/s+/g,' ').trim();
+      if (keyLatin.length < 1) continue;
+
+      // Bo val qua ngan hoac qua dai
+      var valLatin = removeChinese(rawVal).replace(/s+/g,' ').trim();
+      if (valLatin.length < 1) continue; // gia tri toan chu Trung - bo
+      if (valLatin.length < 1 && rawVal.length > 0) valLatin = rawVal.trim();
+      if (valLatin.length > 150) continue; // qua dai - khong phai spec
+
+      // Bo cac key trung lap (normalize)
+      var keyNorm = keyLatin.toLowerCase().replace(/s+/g,'');
+      if (seen[keyNorm]) continue;
+      seen[keyNorm] = true;
+
+      var keyViet = dichTenSpec(rawKey);
+      results.push('- ' + keyViet + ': ' + valLatin);
+    }
+  }
+  return results;
 }
 function showPrice(price) {
   if (!price || !priceBox) return;
@@ -138,17 +198,43 @@ function buildShopeeDesc(d) {
   var sp = d.specs || [];
   var vr = d.variants || [];
 
-  lines.push('THONG SO KY THUAT');
-  lines.push('------------------');
+  // --- TONG HOP THONG SO TU ca specs[] va desc ---
+  // 1. Thu thap tu d.specs[] truoc
+  var specLines = [];
+  var seenKeys = {};
   var cleanTitle = removeChinese(d.title || '').replace(/s+/g, ' ').trim();
-  if (cleanTitle.length >= 5) {
-    lines.push('- Ten san pham: ' + cleanTitle.substring(0, 100));
-  }
+
   if (sp.length > 0) {
     for (var i = 0; i < sp.length; i++) {
       var line = formatSpecLine(sp[i]);
-      if (line.length > 3) lines.push(line);
+      if (line.length > 3) {
+        var keyPart = line.substring(2, line.indexOf(':')).toLowerCase().replace(/s+/g,'');
+        if (!seenKeys[keyPart]) {
+          seenKeys[keyPart] = true;
+          specLines.push(line);
+        }
+      }
     }
+  }
+
+  // 2. Bo sung tu d.desc nhung thong so chua co trong specs[]
+  var descExtracted = parseDescSpecs(d.desc);
+  for (var e = 0; e < descExtracted.length; e++) {
+    var dLine = descExtracted[e];
+    var dKey = dLine.substring(2, dLine.indexOf(':')).toLowerCase().replace(/s+/g,'');
+    if (!seenKeys[dKey]) {
+      seenKeys[dKey] = true;
+      specLines.push(dLine);
+    }
+  }
+
+  lines.push('THONG SO KY THUAT');
+  lines.push('------------------');
+  if (cleanTitle.length >= 5) {
+    lines.push('- Ten san pham: ' + cleanTitle.substring(0, 100));
+  }
+  for (var sl = 0; sl < specLines.length; sl++) {
+    lines.push(specLines[sl]);
   }
   if (vr.length > 0) {
     var vrClean = [];
@@ -202,10 +288,12 @@ function buildShopeeDesc(d) {
   lines.push('BAO HANH & CAM KET');
   lines.push('------------------');
   var bhFound = false;
-  for (var b = 0; b < sp.length; b++) {
-    var bLower = sp[b].toLowerCase();
+  // Tim bao hanh trong ca specs va desc
+  var allSrc = sp.slice();
+  for (var b = 0; b < allSrc.length; b++) {
+    var bLower = allSrc[b].toLowerCase();
     if (bLower.indexOf('bao hanh') !== -1 || bLower.indexOf('warranty') !== -1) {
-      var bhLine = formatSpecLine(sp[b]);
+      var bhLine = formatSpecLine(allSrc[b]);
       if (bhLine.length > 3) { lines.push(bhLine); bhFound = true; break; }
     }
   }
