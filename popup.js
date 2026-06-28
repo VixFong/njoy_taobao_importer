@@ -15,6 +15,8 @@ const priceBox = document.getElementById('priceBox');
 let currentData = null;
 
 var NL = String.fromCharCode(10);
+var CR = String.fromCharCode(13);
+var PIPE = String.fromCharCode(124);
 
 function setStatus(msg, type) { if(type===undefined)type=''; statusEl.textContent = msg; statusEl.className = type; }
 function setDlProgress(msg, type) { if(type===undefined)type=''; dlProgress.textContent = msg; dlProgress.className = type; }
@@ -40,6 +42,25 @@ function removeChinese(str) {
       result += str[i];
     }
   }
+  return result;
+}
+
+// Tach chuoi theo nhieu ky tu phan cach (NL, CR, PIPE) khong dung regex literal
+function splitLines(str) {
+  var result = [];
+  var current = '';
+  for (var i = 0; i < str.length; i++) {
+    var ch = str[i];
+    var code = str.charCodeAt(i);
+    // Phan cach: NL(10), CR(13), PIPE(124)
+    if (code === 10 || code === 13 || code === 124) {
+      if (current.trim().length > 0) result.push(current.trim());
+      current = '';
+    } else {
+      current += ch;
+    }
+  }
+  if (current.trim().length > 0) result.push(current.trim());
   return result;
 }
 
@@ -77,7 +98,6 @@ function dichTenSpec(key) {
     ['feature','Dac diem'],['dac diem','Dac diem'],
     ['protocol','Giao thuc sac'],['giao thuc','Giao thuc sac'],
     ['efficiency','Hieu suat'],['hieu suat','Hieu suat'],
-    ['operating','Nhiet do hoat dong'],['storage','Nhiet do bao quan'],
     ['carton','Kich thuoc thung'],['box','Kich thuoc hop'],
     ['pcs','So luong/thung'],['qty','So luong']
   ];
@@ -105,52 +125,54 @@ function formatSpecLine(specStr) {
   return '- ' + keyViet + ': ' + valClean;
 }
 
-// Ham moi: trich xuat thong so ky thuat tu d.desc (phan mo ta text cua 1688/Taobao)
-// d.desc chua nhieu thong so dang "Ten: Gia tri" xen ke chu Trung
+// Trich xuat thong so ky thuat tu d.desc
+// Dung splitLines (khong regex literal) de tranh loi GitHub editor
 function parseDescSpecs(desc) {
   if (!desc) return [];
   var results = [];
   var seen = {};
-
-  // Tach thanh tung dong/doan nho
-  var lines = desc.split(/[
-|]+/);
+  var lines = splitLines(desc);
   for (var i = 0; i < lines.length; i++) {
     var rawLine = lines[i].trim();
     if (!rawLine || rawLine.length < 3) continue;
-
-    // Xu ly nhieu cap "Key: Val" tren 1 dong (vd: "Chat lieu: ABS  Tan so: 100-250KHz")
-    // Tach theo pattern: co dau ":" va co chu Latin hoac so truoc/sau
-    var segments = rawLine.split(/(?=[A-Za-z0-9][^:]*:)/);
-    for (var s = 0; s < segments.length; s++) {
-      var seg = segments[s].trim();
-      if (!seg || seg.length < 3) continue;
-
-      var cIdx = seg.indexOf(':');
-      if (cIdx <= 0) {
-        // Khong co dau hai cham - kiem tra xem co phai la thong so don le khong
-        // VD: "95*75*125mm" hay "90g" -> bo qua vi khong co ten
-        continue;
+    // Tim tat ca "Key: Val" trong dong nay
+    // Tach theo vi tri "chu/so + dau hai cham"
+    var remaining = rawLine;
+    var maxIter = 10;
+    while (remaining.length > 2 && maxIter-- > 0) {
+      var cIdx = remaining.indexOf(':');
+      if (cIdx <= 0) break;
+      var rawKey = remaining.substring(0, cIdx).trim();
+      // Tim diem ket thuc cua value: khi gap dau hai cham tiep theo co key truoc no
+      var afterVal = remaining.substring(cIdx + 1);
+      // Lay toi da 80 ky tu cho value, hoac den het dong
+      var rawVal = afterVal.substring(0, 80).trim();
+      // Tim diem cat: tim chu hoa/so + dau phay + khoang trang + chu (pattern cua key moi)
+      // Don gian: lay den khi gap 2+ khoang trang lien tiep hoac het
+      var valEnd = afterVal.length;
+      // Tim dau hieu key moi: so luong khoang trang >= 2 truoc chu tiep theo co dau ":"
+      var nextColon = afterVal.indexOf(':', 1);
+      if (nextColon > 0) {
+        // Tim diem cat hop ly: di nguoc tu nextColon de tim khoang cach giua val va key moi
+        var splitPoint = nextColon;
+        while (splitPoint > 0 && afterVal.charCodeAt(splitPoint - 1) > 32) {
+          splitPoint--;
+        }
+        // Lay val den splitPoint
+        rawVal = afterVal.substring(0, splitPoint).trim();
+        remaining = afterVal.substring(splitPoint).trim();
+      } else {
+        rawVal = afterVal.trim();
+        remaining = '';
       }
-
-      var rawKey = seg.substring(0, cIdx).trim();
-      var rawVal = seg.substring(cIdx + 1).trim();
-
-      // Bo key hoan toan la chu Trung
       var keyLatin = removeChinese(rawKey).replace(/s+/g,' ').trim();
       if (keyLatin.length < 1) continue;
-
-      // Bo val qua ngan hoac qua dai
       var valLatin = removeChinese(rawVal).replace(/s+/g,' ').trim();
-      if (valLatin.length < 1) continue; // gia tri toan chu Trung - bo
-      if (valLatin.length < 1 && rawVal.length > 0) valLatin = rawVal.trim();
-      if (valLatin.length > 150) continue; // qua dai - khong phai spec
-
-      // Bo cac key trung lap (normalize)
+      if (valLatin.length < 1) continue;
+      if (valLatin.length > 120) { remaining = ''; break; }
       var keyNorm = keyLatin.toLowerCase().replace(/s+/g,'');
       if (seen[keyNorm]) continue;
       seen[keyNorm] = true;
-
       var keyViet = dichTenSpec(rawKey);
       results.push('- ' + keyViet + ': ' + valLatin);
     }
@@ -198,8 +220,6 @@ function buildShopeeDesc(d) {
   var sp = d.specs || [];
   var vr = d.variants || [];
 
-  // --- TONG HOP THONG SO TU ca specs[] va desc ---
-  // 1. Thu thap tu d.specs[] truoc
   var specLines = [];
   var seenKeys = {};
   var cleanTitle = removeChinese(d.title || '').replace(/s+/g, ' ').trim();
@@ -208,8 +228,9 @@ function buildShopeeDesc(d) {
     for (var i = 0; i < sp.length; i++) {
       var line = formatSpecLine(sp[i]);
       if (line.length > 3) {
-        var keyPart = line.substring(2, line.indexOf(':')).toLowerCase().replace(/s+/g,'');
-        if (!seenKeys[keyPart]) {
+        var colonPos = line.indexOf(':');
+        var keyPart = colonPos > 0 ? line.substring(2, colonPos).toLowerCase().replace(/s+/g,'') : '';
+        if (keyPart && !seenKeys[keyPart]) {
           seenKeys[keyPart] = true;
           specLines.push(line);
         }
@@ -217,12 +238,12 @@ function buildShopeeDesc(d) {
     }
   }
 
-  // 2. Bo sung tu d.desc nhung thong so chua co trong specs[]
   var descExtracted = parseDescSpecs(d.desc);
   for (var e = 0; e < descExtracted.length; e++) {
     var dLine = descExtracted[e];
-    var dKey = dLine.substring(2, dLine.indexOf(':')).toLowerCase().replace(/s+/g,'');
-    if (!seenKeys[dKey]) {
+    var dColonPos = dLine.indexOf(':');
+    var dKey = dColonPos > 0 ? dLine.substring(2, dColonPos).toLowerCase().replace(/s+/g,'') : '';
+    if (dKey && !seenKeys[dKey]) {
       seenKeys[dKey] = true;
       specLines.push(dLine);
     }
@@ -288,12 +309,10 @@ function buildShopeeDesc(d) {
   lines.push('BAO HANH & CAM KET');
   lines.push('------------------');
   var bhFound = false;
-  // Tim bao hanh trong ca specs va desc
-  var allSrc = sp.slice();
-  for (var b = 0; b < allSrc.length; b++) {
-    var bLower = allSrc[b].toLowerCase();
+  for (var b = 0; b < sp.length; b++) {
+    var bLower = sp[b].toLowerCase();
     if (bLower.indexOf('bao hanh') !== -1 || bLower.indexOf('warranty') !== -1) {
-      var bhLine = formatSpecLine(allSrc[b]);
+      var bhLine = formatSpecLine(sp[b]);
       if (bhLine.length > 3) { lines.push(bhLine); bhFound = true; break; }
     }
   }
