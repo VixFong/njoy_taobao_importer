@@ -50,7 +50,11 @@ function collectShadowImages(hostSelector) {
 }
 
 // ── Price extraction ──────────────────────────────────────────────────────────
-const CNY_TO_VND = 4100;
+// FIX: Guard against redeclaration when content.js is injected multiple times
+// (once via manifest content_scripts, once via chrome.scripting.executeScript)
+if (typeof CNY_TO_VND === 'undefined') {
+  var CNY_TO_VND = 4100;
+}
 
 function extractPrice() {
   const is1688 = location.hostname.includes('1688.com');
@@ -98,7 +102,6 @@ function formatPrice(cny) {
     vndStr: vnd.toLocaleString('vi-VN') + '\u20AB',
   };
 }
-
 // ── Extract text from ALL shadow DOM hosts matching a class pattern ────────────
 function extractShadowText(classPattern) {
   const results = [];
@@ -108,7 +111,6 @@ function extractShadowText(classPattern) {
     const cls = (host.className || '').toString();
     if (!cls.includes(classPattern)) return;
     const sr = host.shadowRoot;
-    // Walk text nodes, skip style/script
     const contentEls = sr.querySelectorAll('p, span, div, li, h1, h2, h3, h4, h5, h6, strong, b, em, pre');
     contentEls.forEach(el => {
       if (el.children.length > 3) return;
@@ -203,7 +205,6 @@ function extractTaobao() {
 
   return { platform: 'taobao', title, price, images: images.slice(0, 9), specs, variants, desc, descImages: descImages.slice(0, 30), url: location.href };
 }
-
 // ── 1688 extractor ────────────────────────────────────────────────────────────
 function extract1688() {
   const allH1 = [...document.querySelectorAll('h1')];
@@ -264,11 +265,9 @@ function extract1688() {
     });
   }
 
-  // ── Description images (shadow DOM) ──────────────────────────────────────
   const descImages = [];
   const seenDesc = new Set();
 
-  // Method 1: v-detail-3 shadow root (old 1688 layout)
   const vDetail3 = document.querySelector('v-detail-3');
   if (vDetail3?.shadowRoot) {
     vDetail3.shadowRoot.querySelectorAll('img').forEach(img => {
@@ -279,7 +278,6 @@ function extract1688() {
     });
   }
 
-  // Method 2: v-detail-z or any shadow host with class containing "html-description" (new 1688 layout)
   if (descImages.length === 0) {
     document.querySelectorAll('*').forEach(host => {
       if (!host.shadowRoot) return;
@@ -294,7 +292,6 @@ function extract1688() {
     });
   }
 
-  // Method 3: normal DOM fallback
   if (descImages.length === 0) {
     collectImages([
       '.module-od-product-description img',
@@ -304,31 +301,23 @@ function extract1688() {
     ]).forEach(url => { if (!seenDesc.has(url)) { seenDesc.add(url); descImages.push(url); } });
   }
 
-  // ── Description text extraction (INCLUDING specs from image description area) ──
-  // Priority: scan ALL shadow DOM hosts with "html-description" class
-  // This captures text specs that sellers write in the description section (e.g. 产品尺寸, 外箱, 净重)
   let desc = '';
 
-  // Method A: v-detail-z.html-description shadow root (new 1688 - contains text specs below product images)
   const htmlDescTexts = extractShadowText('html-description');
   if (htmlDescTexts.length > 0) {
-    // Filter out CSS/noise, keep meaningful text lines
     const cleanLines = htmlDescTexts.filter(t => {
-      // Keep lines with Chinese chars, numbers with units, dimensions
-      return /[\u4e00-\u9fff]/.test(t) || /\d+\s*[*xX×]\s*\d+/.test(t) || /\d+(mm|cm|CM|kg|KG|g\b)/.test(t);
+      return /[\u4e00-\u9fff]/.test(t) || /\d+\s*[*xX\xd7]\s*\d+/.test(t) || /\d+(mm|cm|CM|kg|KG|g\b)/.test(t);
     });
     if (cleanLines.length > 0) {
       desc = cleanLines.join(' | ').substring(0, 1500);
     }
   }
 
-  // Method B: v-detail-3 shadow root text (old layout)
   if (!desc && vDetail3?.shadowRoot) {
     const rawText = vDetail3.shadowRoot.textContent || '';
     desc = rawText.replace(/^[\s\S]*?}\s*/m, '').replace(/\s+/g, ' ').trim().substring(0, 800);
   }
 
-  // Method C: normal DOM
   if (!desc) {
     const descEl = document.querySelector('.module-od-product-description') || document.querySelector('.mod-detail-desc');
     desc = descEl?.innerText?.replace(/\s+/g, ' ')?.trim()?.substring(0, 800) || '';
