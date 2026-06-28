@@ -13,10 +13,7 @@ const imgStrip = document.getElementById('imgStrip');
 const priceBox = document.getElementById('priceBox');
 
 let currentData = null;
-
 var NL = String.fromCharCode(10);
-var CR = String.fromCharCode(13);
-var PIPE = String.fromCharCode(124);
 
 function setStatus(msg, type) { if(type===undefined)type=''; statusEl.textContent = msg; statusEl.className = type; }
 function setDlProgress(msg, type) { if(type===undefined)type=''; dlProgress.textContent = msg; dlProgress.className = type; }
@@ -26,9 +23,7 @@ function hasChinese(str) {
   for (var i = 0; i < str.length; i++) {
     var c = str.charCodeAt(i);
     if ((c >= 0x4e00 && c <= 0x9fff) || (c >= 0x3400 && c <= 0x4dbf) ||
-        (c >= 0xf900 && c <= 0xfaff) || (c >= 0x20000 && c <= 0x2a6df)) {
-      return true;
-    }
+        (c >= 0xf900 && c <= 0xfaff)) return true;
   }
   return false;
 }
@@ -38,78 +33,98 @@ function removeChinese(str) {
   for (var i = 0; i < str.length; i++) {
     var c = str.charCodeAt(i);
     if (!((c >= 0x4e00 && c <= 0x9fff) || (c >= 0x3400 && c <= 0x4dbf) ||
-          (c >= 0xf900 && c <= 0xfaff) || (c >= 0x20000 && c <= 0x2a6df))) {
+          (c >= 0xf900 && c <= 0xfaff))) {
       result += str[i];
     }
   }
   return result;
 }
 
-// Tach chuoi theo nhieu ky tu phan cach (NL, CR, PIPE) khong dung regex literal
+// Tach chuoi theo NL(10) CR(13) PIPE(124) khong dung regex literal
 function splitLines(str) {
   var result = [];
   var current = '';
   for (var i = 0; i < str.length; i++) {
-    var ch = str[i];
     var code = str.charCodeAt(i);
-    // Phan cach: NL(10), CR(13), PIPE(124)
     if (code === 10 || code === 13 || code === 124) {
       if (current.trim().length > 0) result.push(current.trim());
       current = '';
     } else {
-      current += ch;
+      current += str[i];
     }
   }
   if (current.trim().length > 0) result.push(current.trim());
   return result;
 }
 
-function dichTenSpec(key) {
-  var k = key.toLowerCase().trim();
-  var map = [
-    ['brand','Thuong hieu'],['hang','Thuong hieu'],['nhan hieu','Thuong hieu'],
-    ['chat lieu','Chat lieu'],['material','Chat lieu'],['vat lieu','Chat lieu'],
-    ['color','Mau sac'],['colour','Mau sac'],['mau','Mau sac'],
-    ['size','Kich thuoc'],['kich thuoc','Kich thuoc'],['kich co','Kich thuoc'],['dimension','Kich thuoc'],
-    ['weight','Trong luong'],['trong luong','Trong luong'],['can nang','Trong luong'],
-    ['net weight','Trong luong tinh'],['gross weight','Trong luong tong'],
-    ['power','Cong suat'],['cong suat','Cong suat'],['watt','Cong suat'],
-    ['voltage','Dien ap'],['dien ap','Dien ap'],['volt','Dien ap'],
-    ['current','Dong dien'],['dong dien','Dong dien'],['amp','Dong dien'],
-    ['capacity','Dung luong'],['dung luong','Dung luong'],
-    ['warranty','Bao hanh'],['bao hanh','Bao hanh'],
-    ['origin','Xuat xu'],['xuat xu','Xuat xu'],['made in','Xuat xu'],
-    ['compatible','Tuong thich'],['tuong thich','Tuong thich'],
-    ['connect','Ket noi'],['ket noi','Ket noi'],['interface','Cong giao tiep'],
-    ['charging','Sac'],['charge','Sac'],
-    ['input','Dau vao'],['output','Dau ra'],
-    ['length','Chieu dai'],['chieu dai','Chieu dai'],
-    ['width','Chieu rong'],['chieu rong','Chieu rong'],
-    ['height','Chieu cao'],['chieu cao','Chieu cao'],
-    ['type','Loai'],['loai','Loai'],
-    ['model','Model'],['ma sp','Ma san pham'],['sku','Ma san pham'],
-    ['package','Dong goi'],['dong goi','Dong goi'],
-    ['quantity','So luong'],['so luong','So luong'],
-    ['temp','Nhiet do'],['nhiet do','Nhiet do'],
-    ['frequency','Tan so'],['tan so','Tan so'],['freq','Tan so'],
-    ['function','Tinh nang'],['tinh nang','Tinh nang'],['chuc nang','Tinh nang'],
-    ['application','Ung dung'],['ung dung','Ung dung'],
-    ['style','Phong cach'],['phong cach','Phong cach'],
-    ['feature','Dac diem'],['dac diem','Dac diem'],
-    ['protocol','Giao thuc sac'],['giao thuc','Giao thuc sac'],
-    ['efficiency','Hieu suat'],['hieu suat','Hieu suat'],
-    ['carton','Kich thuoc thung'],['box','Kich thuoc hop'],
-    ['pcs','So luong/thung'],['qty','So luong']
-  ];
-  for (var i = 0; i < map.length; i++) {
-    if (k.indexOf(map[i][0]) !== -1) return map[i][1];
+// Bang dich chu Trung -> ten tieng Viet (cac spec pho bien tren 1688/Taobao)
+var CJK_MAP = [
+  ['最大输出功率','Cong suat toi da'],['输出功率','Cong suat dau ra'],['总功率','Tong cong suat'],
+  ['输入功率','Cong suat dau vao'],['额定功率','Cong suat dinh muc'],
+  ['输出电流','Dong dien dau ra'],['输入电流','Dong dien dau vao'],
+  ['输出电压','Dien ap dau ra'],['输入电压','Dien ap dau vao'],
+  ['充电协议','Giao thuc sac'],['充电方式','Phuong thuc sac'],
+  ['产品尺寸','Kich thuoc san pham'],['包装尺寸','Kich thuoc dong goi'],
+  ['彩合尺寸','Kich thuoc hop mau'],['外箱尺寸','Kich thuoc thung'],
+  ['折叠尺寸','Kich thuoc khi gap'],['展开尺寸','Kich thuoc khi mo'],
+  ['产品净重','Trong luong tinh'],['产品毛重','Trong luong co bao bi'],
+  ['外箱毛重','Trong luong thung'],['装箱数量','So luong/thung'],
+  ['净重','Trong luong tinh'],['毛重','Trong luong co bao bi'],
+  ['重量','Trong luong'],['尺寸','Kich thuoc'],['大小','Kich thuoc'],
+  ['材质','Chat lieu'],['材料','Chat lieu'],['颜色','Mau sac'],
+  ['色彩','Mau sac'],['款式','Phong cach'],['风格','Phong cach'],
+  ['品牌','Thuong hieu'],['货号','Ma hang'],['型号','Model'],
+  ['产品认证','Chung chi'],['认证','Chung chi'],
+  ['工作频率','Tan so lam viec'],['频率','Tan so'],
+  ['主要销售地区','Khu vuc ban hang'],['销售地区','Khu vuc ban hang'],
+  ['适用设备','Thiet bi tuong thich'],['适配设备','Thiet bi tuong thich'],
+  ['兼容性','Tuong thich'],['适用范围','Pham vi su dung'],
+  ['接口类型','Loai cong ket noi'],['接口','Cong ket noi'],
+  ['连接方式','Phuong thuc ket noi'],['充电头','Dau sac'],
+  ['电源输入','Nguon dien dau vao'],['包装内容','Noi dung dong goi'],
+  ['配件','Phu kien kem theo'],['功能','Tinh nang'],
+  ['特点','Dac diem'],['特性','Dac tinh'],
+  ['有可授权的自有品牌','Co thuong hieu rieng'],['是否专利货源','Co bang sang che'],
+  ['支持订制','Ho tro dat hang rieng'],['起订量','So luong toi thieu'],
+  ['保修期','Bao hanh'],['保质期','Han su dung'],['质保','Bao hanh'],
+  ['产地','Xuat xu'],['原产地','Xuat xu'],['生产地','Noi san xuat']
+];
+
+function dichCJK(key) {
+  var k = key.trim();
+  // 1. Tim trong bang CJK
+  for (var i = 0; i < CJK_MAP.length; i++) {
+    if (k.indexOf(CJK_MAP[i][0]) !== -1) return CJK_MAP[i][1];
   }
-  var clean = removeChinese(key).replace(/s+/g,' ').trim();
-  return clean.length > 1 ? clean : key.trim();
+  // 2. Bo chu Trung, lay phan Latin con lai
+  var latin = removeChinese(k).replace(/s+/g,' ').trim();
+  if (latin.length > 1) return latin;
+  // 3. Fallback: tra ve key goc cat ngan
+  return k.substring(0, 20);
+}
+
+// Dich gia tri: xoa chu Trung nhung giu lai so va ky tu dac biet
+function dichVal(val) {
+  var v = val.trim();
+  var cleaned = removeChinese(v).replace(/s+/g,' ').trim();
+  // Neu sau khi xoa chu Trung van con du lieu co ich (so, don vi, ky hieu)
+  if (cleaned.length >= 1) return cleaned;
+  // Neu hoan toan la chu Trung (vd: 是/否/通用) -> dich mot so truong hop pho bien
+  if (v === '是') return 'Co';
+  if (v === '否') return 'Khong';
+  if (v === '通用') return 'Pho thong';
+  if (v === '支持') return 'Ho tro';
+  if (v === '不支持') return 'Khong ho tro';
+  if (v === '有') return 'Co';
+  if (v === '无') return 'Khong';
+  // Giu nguyen neu khong dich duoc
+  return v;
 }
 
 function formatSpecLine(specStr) {
   var colonIdx = specStr.indexOf(':');
+  // Thu dau full-width colon neu khong co half-width
+  if (colonIdx < 0) colonIdx = specStr.indexOf('：');
   var key, val;
   if (colonIdx > 0) {
     key = specStr.substring(0, colonIdx).trim();
@@ -118,67 +133,82 @@ function formatSpecLine(specStr) {
     var clean = removeChinese(specStr).replace(/s+/g,' ').trim();
     return clean.length > 2 ? ('- ' + clean) : '';
   }
-  var keyViet = dichTenSpec(key);
-  var valClean = removeChinese(val).replace(/s+/g,' ').trim();
-  if (valClean.length < 1) valClean = val.trim();
-  if (valClean.length < 1) return '';
-  return '- ' + keyViet + ': ' + valClean;
+  var keyViet = hasChinese(key) ? dichCJK(key) : dichCJK(key);
+  var valViet = dichVal(val);
+  if (!valViet || valViet.length < 1) return '';
+  return '- ' + keyViet + ': ' + valViet;
 }
-
-// Trich xuat thong so ky thuat tu d.desc
-// Dung splitLines (khong regex literal) de tranh loi GitHub editor
+// Trich xuat thong so tu d.desc (text tu mo ta 1688/Taobao)
+// d.desc vi du: "...| Q740# | Dau vao: DC9V | Cong suat: 5W/15W | Chat lieu: ABS ..."
 function parseDescSpecs(desc) {
   if (!desc) return [];
   var results = [];
   var seen = {};
   var lines = splitLines(desc);
-  for (var i = 0; i < lines.length; i++) {
-    var rawLine = lines[i].trim();
-    if (!rawLine || rawLine.length < 3) continue;
-    // Tim tat ca "Key: Val" trong dong nay
-    // Tach theo vi tri "chu/so + dau hai cham"
-    var remaining = rawLine;
-    var maxIter = 10;
-    while (remaining.length > 2 && maxIter-- > 0) {
-      var cIdx = remaining.indexOf(':');
-      if (cIdx <= 0) break;
-      var rawKey = remaining.substring(0, cIdx).trim();
-      // Tim diem ket thuc cua value: khi gap dau hai cham tiep theo co key truoc no
-      var afterVal = remaining.substring(cIdx + 1);
-      // Lay toi da 80 ky tu cho value, hoac den het dong
-      var rawVal = afterVal.substring(0, 80).trim();
-      // Tim diem cat: tim chu hoa/so + dau phay + khoang trang + chu (pattern cua key moi)
-      // Don gian: lay den khi gap 2+ khoang trang lien tiep hoac het
-      var valEnd = afterVal.length;
-      // Tim dau hieu key moi: so luong khoang trang >= 2 truoc chu tiep theo co dau ":"
-      var nextColon = afterVal.indexOf(':', 1);
-      if (nextColon > 0) {
-        // Tim diem cat hop ly: di nguoc tu nextColon de tim khoang cach giua val va key moi
-        var splitPoint = nextColon;
-        while (splitPoint > 0 && afterVal.charCodeAt(splitPoint - 1) > 32) {
-          splitPoint--;
-        }
-        // Lay val den splitPoint
-        rawVal = afterVal.substring(0, splitPoint).trim();
-        remaining = afterVal.substring(splitPoint).trim();
-      } else {
-        rawVal = afterVal.trim();
-        remaining = '';
-      }
-      var keyLatin = removeChinese(rawKey).replace(/s+/g,' ').trim();
-      if (keyLatin.length < 1) continue;
-      var valLatin = removeChinese(rawVal).replace(/s+/g,' ').trim();
-      if (valLatin.length < 1) continue;
-      if (valLatin.length > 120) { remaining = ''; break; }
-      var keyNorm = keyLatin.toLowerCase().replace(/s+/g,'');
+  for (var li = 0; li < lines.length; li++) {
+    var seg = lines[li].trim();
+    if (!seg || seg.length < 3) continue;
+    // Xu ly tung cap key:val trong doan nay
+    // Vi moi doan co the co nhieu cap lien tiep nhu "Chat lieu: ABS  Tan so: 100-250KHz"
+    // Ta tach bang cach tim tat ca cac vi tri co dau ":" va phan phoi key/val
+    var pairs = extractPairsFromSegment(seg);
+    for (var pi = 0; pi < pairs.length; pi++) {
+      var p = pairs[pi];
+      var keyNorm = p.k.toLowerCase().replace(/s+/g,'');
+      if (!keyNorm || keyNorm.length < 1) continue;
       if (seen[keyNorm]) continue;
       seen[keyNorm] = true;
-      var keyViet = dichTenSpec(rawKey);
-      results.push('- ' + keyViet + ': ' + valLatin);
+      var keyViet = hasChinese(p.k) ? dichCJK(p.k) : dichCJK(p.k);
+      var valViet = dichVal(p.v);
+      if (!valViet || valViet.length < 1) continue;
+      results.push('- ' + keyViet + ': ' + valViet);
     }
   }
   return results;
 }
+
+// Tach cac cap key:val tu 1 doan text (co the co nhieu cap tren cung 1 dong)
+// Vi du: "Chat lieu: ABS  Tan so: 100-250KHz" -> [{k:'Chat lieu',v:'ABS'},{k:'Tan so',v:'100-250KHz'}]
+function extractPairsFromSegment(seg) {
+  var pairs = [];
+  var pos = 0;
+  var len = seg.length;
+  while (pos < len) {
+    // Tim dau ':' tiep theo
+    var cPos = -1;
+    for (var ci = pos; ci < len; ci++) {
+      var ch = seg.charCodeAt(ci);
+      // Dau ':' half-width (58) hoac full-width (65306)
+      if (ch === 58 || ch === 65306) { cPos = ci; break; }
+    }
+    if (cPos < 0) break; // Khong con dau ':' nao
+    var rawKey = seg.substring(pos, cPos).trim();
+    if (!rawKey || rawKey.length < 1) { pos = cPos + 1; continue; }
+    // Tim diem ket thuc value: tim dau ':' tiep theo, di nguoc de lay key tiep theo
+    var nextCPos = -1;
+    for (var nci = cPos + 1; nci < len; nci++) {
+      var nch = seg.charCodeAt(nci);
+      if (nch === 58 || nch === 65306) { nextCPos = nci; break; }
+    }
+    var rawVal;
+    if (nextCPos > 0) {
+      // Lay val den truoc key tiep theo
+      // Key tiep theo bat dau tu dau? Di nguoc tu nextCPos den khi gap khoang trang
+      var keyStart = nextCPos - 1;
+      while (keyStart > cPos + 1 && seg.charCodeAt(keyStart - 1) > 32) keyStart--;
+      rawVal = seg.substring(cPos + 1, keyStart).trim();
+      pos = keyStart;
+    } else {
+      rawVal = seg.substring(cPos + 1).trim();
+      pos = len;
+    }
+    if (rawKey.length > 0 && rawVal.length > 0) {
+      pairs.push({k: rawKey, v: rawVal});
+    }
+  }
+  return pairs;
+}
+
 function showPrice(price) {
   if (!price || !priceBox) return;
   priceBox.style.display = 'flex';
@@ -193,23 +223,38 @@ function setCopyButtons(disabled) {
   copyShopeeBtn.disabled = disabled;
 }
 
+// Sinh ten san pham Shopee: uu tien Latin, fallback dung keyword map
 function buildShopeeName(d) {
-  var raw = removeChinese(d.title || '').replace(/s+/g, ' ').trim();
-  if (raw.length >= 10) return raw.substring(0, 120);
-  return (d.title || '').substring(0, 120);
+  var title = d.title || '';
+  var latin = removeChinese(title).replace(/s+/g,' ').trim();
+  if (latin.length >= 5) return latin.substring(0, 120);
+  // Fallback: tim cac tu khoa Latin/so trong title
+  var keywords = [];
+  var parts = title.split(' ');
+  for (var i = 0; i < parts.length; i++) {
+    var p = removeChinese(parts[i]).trim();
+    if (p.length > 0) keywords.push(p);
+  }
+  if (keywords.length > 0) return keywords.join(' ').substring(0, 120);
+  // Fallback cuoi: lay tu CJK_MAP keywords
+  for (var j = 0; j < CJK_MAP.length; j++) {
+    if (title.indexOf(CJK_MAP[j][0]) !== -1) keywords.push(CJK_MAP[j][1]);
+  }
+  return keywords.length > 0 ? keywords.join(', ').substring(0, 120) : title.substring(0, 120);
 }
 
 function buildHashtags(d) {
   var tags = [];
   var title = (d.title || '').toLowerCase();
-  if (title.indexOf('sac') !== -1 || title.indexOf('charger') !== -1) tags.push('#sacnhanh');
-  if (title.indexOf('khong day') !== -1 || title.indexOf('wireless') !== -1) tags.push('#sackhongday');
-  if (title.indexOf('iphone') !== -1 || title.indexOf('ios') !== -1) tags.push('#phuKienIphone');
-  if (title.indexOf('android') !== -1 || title.indexOf('samsung') !== -1) tags.push('#phuKienAndroid');
-  if (title.indexOf('op lung') !== -1 || title.indexOf('case') !== -1) tags.push('#oplung');
-  if (title.indexOf('kinh') !== -1 || title.indexOf('tempered') !== -1) tags.push('#kinhcuongluc');
-  if (title.indexOf('day cap') !== -1 || title.indexOf('cable') !== -1) tags.push('#daycap');
-  if (title.indexOf('tai nghe') !== -1 || title.indexOf('headphone') !== -1) tags.push('#tainghe');
+  var desc = (d.desc || '').toLowerCase();
+  var combined = title + ' ' + desc;
+  if (combined.indexOf('sac') !== -1 || combined.indexOf('charger') !== -1 || combined.indexOf('充') !== -1) tags.push('#sacnhanh');
+  if (combined.indexOf('wireless') !== -1 || combined.indexOf('无线') !== -1) tags.push('#sackhongday');
+  if (combined.indexOf('iphone') !== -1 || combined.indexOf('ios') !== -1) tags.push('#phuKienIphone');
+  if (combined.indexOf('android') !== -1 || combined.indexOf('samsung') !== -1) tags.push('#phuKienAndroid');
+  if (combined.indexOf('case') !== -1 || combined.indexOf('op lung') !== -1) tags.push('#oplung');
+  if (combined.indexOf('cable') !== -1 || combined.indexOf('day cap') !== -1) tags.push('#daycap');
+  if (combined.indexOf('tai nghe') !== -1 || combined.indexOf('headphone') !== -1) tags.push('#tainghe');
   if (tags.length === 0) tags.push('#phuKienDienTu');
   tags.push('#njoyshop');
   return tags.slice(0, 5).join(' ');
@@ -219,44 +264,43 @@ function buildShopeeDesc(d) {
   var lines = [];
   var sp = d.specs || [];
   var vr = d.variants || [];
-
   var specLines = [];
   var seenKeys = {};
-  var cleanTitle = removeChinese(d.title || '').replace(/s+/g, ' ').trim();
 
-  if (sp.length > 0) {
-    for (var i = 0; i < sp.length; i++) {
-      var line = formatSpecLine(sp[i]);
-      if (line.length > 3) {
-        var colonPos = line.indexOf(':');
-        var keyPart = colonPos > 0 ? line.substring(2, colonPos).toLowerCase().replace(/s+/g,'') : '';
-        if (keyPart && !seenKeys[keyPart]) {
-          seenKeys[keyPart] = true;
-          specLines.push(line);
-        }
+  // 1. Lay tu d.specs[] - dich ca key Trung Quoc
+  for (var i = 0; i < sp.length; i++) {
+    var line = formatSpecLine(sp[i]);
+    if (line.length > 3) {
+      var cpos = line.indexOf(':');
+      var kpart = cpos > 0 ? line.substring(2, cpos).toLowerCase().replace(/s+/g,'') : '';
+      if (kpart && !seenKeys[kpart]) {
+        seenKeys[kpart] = true;
+        specLines.push(line);
       }
     }
   }
 
-  var descExtracted = parseDescSpecs(d.desc);
-  for (var e = 0; e < descExtracted.length; e++) {
-    var dLine = descExtracted[e];
-    var dColonPos = dLine.indexOf(':');
-    var dKey = dColonPos > 0 ? dLine.substring(2, dColonPos).toLowerCase().replace(/s+/g,'') : '';
+  // 2. Bo sung tu d.desc (kich thuoc, trong luong, v.v.)
+  var descEx = parseDescSpecs(d.desc);
+  for (var e = 0; e < descEx.length; e++) {
+    var dLine = descEx[e];
+    var dcpos = dLine.indexOf(':');
+    var dKey = dcpos > 0 ? dLine.substring(2, dcpos).toLowerCase().replace(/s+/g,'') : '';
     if (dKey && !seenKeys[dKey]) {
       seenKeys[dKey] = true;
       specLines.push(dLine);
     }
   }
 
+  var cleanTitle = removeChinese(d.title || '').replace(/s+/g,' ').trim();
+
   lines.push('THONG SO KY THUAT');
   lines.push('------------------');
-  if (cleanTitle.length >= 5) {
+  if (cleanTitle.length >= 3) {
     lines.push('- Ten san pham: ' + cleanTitle.substring(0, 100));
   }
-  for (var sl = 0; sl < specLines.length; sl++) {
-    lines.push(specLines[sl]);
-  }
+  for (var sl = 0; sl < specLines.length; sl++) lines.push(specLines[sl]);
+
   if (vr.length > 0) {
     var vrClean = [];
     for (var v = 0; v < vr.length && v < 8; v++) {
@@ -266,38 +310,29 @@ function buildShopeeDesc(d) {
     if (vrClean.length > 0) lines.push('- Phien ban / Mau sac: ' + vrClean.join(', '));
   }
   if (d.price) {
-    lines.push('- Gia tham khao: ' + d.price.cnyStr + ' (tuong duong ~' + d.price.vndStr + ')');
+    lines.push('- Gia tham khao: ' + d.price.cnyStr + ' (~' + d.price.vndStr + ')');
   }
   lines.push('');
 
   lines.push('TINH NANG & CONG DUNG');
   lines.push('---------------------');
   var featureAdded = 0;
-  for (var s = 0; s < sp.length; s++) {
-    var lowerSp = sp[s].toLowerCase();
-    if (lowerSp.indexOf('tinh nang') !== -1 || lowerSp.indexOf('function') !== -1 ||
-        lowerSp.indexOf('application') !== -1 || lowerSp.indexOf('ung dung') !== -1 ||
-        lowerSp.indexOf('feature') !== -1 || lowerSp.indexOf('chuc nang') !== -1) {
-      var fLine = formatSpecLine(sp[s]);
-      if (fLine.length > 3) { lines.push(fLine); featureAdded++; }
-    }
+  var titleRaw = d.title || '';
+  var descRaw = d.desc || '';
+  if (titleRaw.indexOf('无线') !== -1 || descRaw.indexOf('wireless') !== -1) {
+    lines.push('- Sac khong day tien loi, khong can day cap ruong rac'); featureAdded++;
   }
-  var titleClean = removeChinese(d.title || '').replace(/s+/g,' ').trim().toLowerCase();
-  if (titleClean.indexOf('wireless') !== -1 || titleClean.indexOf('khong day') !== -1) {
-    lines.push('- Sac khong day tien loi, khong can day cap ruong rac');
-    featureAdded++;
+  if (descRaw.indexOf('15W') !== -1 || descRaw.indexOf('快充') !== -1) {
+    lines.push('- Ho tro sac nhanh toc do cao, tiet kiem thoi gian sac'); featureAdded++;
   }
-  if (titleClean.indexOf('fast') !== -1 || titleClean.indexOf('nhanh') !== -1 || titleClean.indexOf('quick') !== -1) {
-    lines.push('- Ho tro sac nhanh, tiet kiem thoi gian cho thiet bi');
-    featureAdded++;
+  if (titleRaw.indexOf('折叠') !== -1 || descRaw.indexOf('fold') !== -1) {
+    lines.push('- Thiet ke gap gon, de mang theo khi di chuyen'); featureAdded++;
   }
-  if (titleClean.indexOf('fold') !== -1 || titleClean.indexOf('gap') !== -1) {
-    lines.push('- Thiet ke gap gon, de mang theo khi di chuyen');
-    featureAdded++;
+  if (titleRaw.indexOf('支架') !== -1 || titleRaw.indexOf('stand') !== -1) {
+    lines.push('- Gia do tien loi, de man hinh theo goc nhin thoai mai'); featureAdded++;
   }
-  if (titleClean.indexOf('stand') !== -1 || titleClean.indexOf('gia do') !== -1) {
-    lines.push('- Gia do tien loi, de man hinh theo goc nhin thoai mai');
-    featureAdded++;
+  if (titleRaw.indexOf('双线圈') !== -1) {
+    lines.push('- Cuon day kep (dual coil), tuong thich nhieu loai thiet bi'); featureAdded++;
   }
   if (featureAdded === 0) {
     lines.push('- San pham chat luong cao, duoc kiem tra ky truoc khi giao');
@@ -310,8 +345,8 @@ function buildShopeeDesc(d) {
   lines.push('------------------');
   var bhFound = false;
   for (var b = 0; b < sp.length; b++) {
-    var bLower = sp[b].toLowerCase();
-    if (bLower.indexOf('bao hanh') !== -1 || bLower.indexOf('warranty') !== -1) {
+    var bLow = sp[b].toLowerCase();
+    if (bLow.indexOf('bao hanh') !== -1 || bLow.indexOf('warranty') !== -1 || bLow.indexOf('质保') !== -1 || bLow.indexOf('保修') !== -1) {
       var bhLine = formatSpecLine(sp[b]);
       if (bhLine.length > 3) { lines.push(bhLine); bhFound = true; break; }
     }
@@ -505,20 +540,16 @@ extractBtn.addEventListener('click', async function() {
   setStatus('Dang trich xuat...'); setCopyButtons(true);
   output.value = ''; dlSection.style.display = 'none';
   imgStrip.style.display = 'none'; hidePrice();
-
   var tab;
   try {
     var tabs = await chrome.tabs.query({active: true, currentWindow: true});
     tab = tabs[0];
   } catch(e) { setStatus('Khong lay duoc tab.', 'err'); return; }
-
   var url = tab.url || '';
   if (url.indexOf('taobao.com') === -1 && url.indexOf('1688.com') === -1 && url.indexOf('tmall.com') === -1) {
     setStatus('Chi hoat dong tren taobao.com / 1688.com / tmall.com', 'err'); return;
   }
-
   try { await chrome.scripting.executeScript({target: {tabId: tab.id}, files: ['content.js']}); } catch(e) {}
-
   try {
     var resp = await chrome.tabs.sendMessage(tab.id, {action: 'extract'});
     if (!resp || !resp.ok) throw new Error((resp && resp.error) || 'Khong nhan duoc du lieu');
