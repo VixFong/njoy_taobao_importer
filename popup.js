@@ -14,6 +14,8 @@ const priceBox = document.getElementById('priceBox');
 
 let currentData = null;
 
+var NL = String.fromCharCode(10);
+
 function setStatus(msg, type) { if(type===undefined)type=''; statusEl.textContent = msg; statusEl.className = type; }
 function setDlProgress(msg, type) { if(type===undefined)type=''; dlProgress.textContent = msg; dlProgress.className = type; }
 function delay(ms) { return new Promise(function(r){ setTimeout(r, ms); }); }
@@ -57,7 +59,7 @@ function dichTenSpec(key) {
     ['origin','Xuat xu'],['xuat xu','Xuat xu'],['made in','Xuat xu'],
     ['compatible','Tuong thich'],['tuong thich','Tuong thich'],
     ['connect','Ket noi'],['ket noi','Ket noi'],['interface','Cong giao tiep'],
-    ['charging','Sac'],['charge','Sac'],['sac','Sac'],
+    ['charging','Sac'],['charge','Sac'],
     ['input','Dau vao'],['output','Dau ra'],
     ['length','Chieu dai'],['chieu dai','Chieu dai'],
     ['width','Chieu rong'],['chieu rong','Chieu rong'],
@@ -87,13 +89,13 @@ function formatSpecLine(specStr) {
     val = specStr.substring(colonIdx + 1).trim();
   } else {
     var clean = removeChinese(specStr).replace(/s+/g,' ').trim();
-    return clean.length > 2 ? ('• ' + clean) : '';
+    return clean.length > 2 ? ('- ' + clean) : '';
   }
   var keyViet = dichTenSpec(key);
   var valClean = removeChinese(val).replace(/s+/g,' ').trim();
   if (valClean.length < 1) valClean = val.trim();
   if (valClean.length < 1) return '';
-  return '• ' + keyViet + ': ' + valClean;
+  return '- ' + keyViet + ': ' + valClean;
 }
 function showPrice(price) {
   if (!price || !priceBox) return;
@@ -140,7 +142,7 @@ function buildShopeeDesc(d) {
   lines.push('------------------');
   var cleanTitle = removeChinese(d.title || '').replace(/s+/g, ' ').trim();
   if (cleanTitle.length >= 5) {
-    lines.push('• Ten san pham: ' + cleanTitle.substring(0, 100));
+    lines.push('- Ten san pham: ' + cleanTitle.substring(0, 100));
   }
   if (sp.length > 0) {
     for (var i = 0; i < sp.length; i++) {
@@ -154,10 +156,10 @@ function buildShopeeDesc(d) {
       var vClean = removeChinese(vr[v]).replace(/s+/g,' ').trim();
       if (vClean.length > 0) vrClean.push(vClean);
     }
-    if (vrClean.length > 0) lines.push('• Phien ban / Mau sac: ' + vrClean.join(', '));
+    if (vrClean.length > 0) lines.push('- Phien ban / Mau sac: ' + vrClean.join(', '));
   }
   if (d.price) {
-    lines.push('• Gia tham khao: ' + d.price.cnyStr + ' (tuong duong ~' + d.price.vndStr + ')');
+    lines.push('- Gia tham khao: ' + d.price.cnyStr + ' (tuong duong ~' + d.price.vndStr + ')');
   }
   lines.push('');
 
@@ -175,25 +177,25 @@ function buildShopeeDesc(d) {
   }
   var titleClean = removeChinese(d.title || '').replace(/s+/g,' ').trim().toLowerCase();
   if (titleClean.indexOf('wireless') !== -1 || titleClean.indexOf('khong day') !== -1) {
-    lines.push('• Sac khong day tien loi, khong can day cap ruong rac');
+    lines.push('- Sac khong day tien loi, khong can day cap ruong rac');
     featureAdded++;
   }
   if (titleClean.indexOf('fast') !== -1 || titleClean.indexOf('nhanh') !== -1 || titleClean.indexOf('quick') !== -1) {
-    lines.push('• Ho tro sac nhanh, tiet kiem thoi gian cho thiet bi');
+    lines.push('- Ho tro sac nhanh, tiet kiem thoi gian cho thiet bi');
     featureAdded++;
   }
   if (titleClean.indexOf('fold') !== -1 || titleClean.indexOf('gap') !== -1) {
-    lines.push('• Thiet ke gap gon, de mang theo khi di chuyen');
+    lines.push('- Thiet ke gap gon, de mang theo khi di chuyen');
     featureAdded++;
   }
   if (titleClean.indexOf('stand') !== -1 || titleClean.indexOf('gia do') !== -1) {
-    lines.push('• Gia do tien loi, de man hinh theo goc nhin thoai mai');
+    lines.push('- Gia do tien loi, de man hinh theo goc nhin thoai mai');
     featureAdded++;
   }
   if (featureAdded === 0) {
-    lines.push('• San pham chat luong cao, duoc kiem tra ky truoc khi giao');
-    lines.push('• Thiet ke hien dai, phu hop nhieu nhu cau su dung');
-    lines.push('• De su dung, khong can huong dan phuc tap');
+    lines.push('- San pham chat luong cao, duoc kiem tra ky truoc khi giao');
+    lines.push('- Thiet ke hien dai, phu hop nhieu nhu cau su dung');
+    lines.push('- De su dung, khong can huong dan phuc tap');
   }
   lines.push('');
 
@@ -207,13 +209,12 @@ function buildShopeeDesc(d) {
       if (bhLine.length > 3) { lines.push(bhLine); bhFound = true; break; }
     }
   }
-  if (!bhFound) lines.push('• Bao hanh: 3 thang loi do nha san xuat');
-  lines.push('• Doi tra: Trong 7 ngay neu loi do nha san xuat');
-  lines.push('• Kiem tra ky san pham truoc khi gui di');
-  lines.push('• Ho tro khach hang 24/7, giai quyet nhanh moi van de');
+  if (!bhFound) lines.push('- Bao hanh: 3 thang loi do nha san xuat');
+  lines.push('- Doi tra: Trong 7 ngay neu loi do nha san xuat');
+  lines.push('- Kiem tra ky san pham truoc khi gui di');
+  lines.push('- Ho tro khach hang 24/7, giai quyet nhanh moi van de');
 
-  return lines.join('
-');
+  return lines.join(NL);
 }
 
 function formatShopeeSection(d) {
@@ -232,8 +233,7 @@ function formatShopeeSection(d) {
   lines.push(buildHashtags(d));
   lines.push('');
   lines.push('Luu y: Kiem tra lai thong so truoc khi dang ban.');
-  return lines.join('
-');
+  return lines.join(NL);
 }
 function formatOutput(d) {
   var L = [];
@@ -277,8 +277,7 @@ function formatOutput(d) {
   L.push('');
   L.push('================================================');
   L.push(formatShopeeSection(d));
-  return L.join('
-');
+  return L.join(NL);
 }
 
 function formatDescOnly(d) {
@@ -307,8 +306,7 @@ function formatDescOnly(d) {
     for (var k = 0; k < d.descImages.length; k++) L.push(String(k+1).padStart(2,'0') + '. ' + d.descImages[k]);
     L.push('');
   }
-  return L.join('
-');
+  return L.join(NL);
 }
 
 function showImageStrip(images) {
