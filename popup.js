@@ -1,16 +1,16 @@
-const extractBtn   = document.getElementById('extractBtn');
-const copyBtn      = document.getElementById('copyBtn');
-const copyDescBtn  = document.getElementById('copyDescBtn');
+const extractBtn    = document.getElementById('extractBtn');
+const copyBtn       = document.getElementById('copyBtn');
+const copyDescBtn   = document.getElementById('copyDescBtn');
 const copyShopeeBtn = document.getElementById('copyShopeeBtn');
-const output       = document.getElementById('output');
-const statusEl     = document.getElementById('status');
-const dlSection    = document.getElementById('dlSection');
-const dlMainBtn    = document.getElementById('dlMainBtn');
-const dlDescBtn    = document.getElementById('dlDescBtn');
-const dlAllBtn     = document.getElementById('dlAllBtn');
-const dlProgress   = document.getElementById('dlProgress');
-const imgStrip     = document.getElementById('imgStrip');
-const priceBox     = document.getElementById('priceBox');
+const output        = document.getElementById('output');
+const statusEl      = document.getElementById('status');
+const dlSection     = document.getElementById('dlSection');
+const dlMainBtn     = document.getElementById('dlMainBtn');
+const dlDescBtn     = document.getElementById('dlDescBtn');
+const dlAllBtn      = document.getElementById('dlAllBtn');
+const dlProgress    = document.getElementById('dlProgress');
+const imgStrip      = document.getElementById('imgStrip');
+const priceBox      = document.getElementById('priceBox');
 
 let currentData = null;
 
@@ -30,9 +30,155 @@ function hidePrice() { if (priceBox) priceBox.style.display = 'none'; }
 
 // ── Enable/disable copy buttons ────────────────────────────────────────────────
 function setCopyButtons(disabled) {
-  copyBtn.disabled = disabled;
-  copyDescBtn.disabled = disabled;
+  copyBtn.disabled       = disabled;
+  copyDescBtn.disabled   = disabled;
   copyShopeeBtn.disabled = disabled;
+}
+
+// ── Trích xuất thông số theo key từ specs[] ────────────────────────────────────
+// specs[] dạng ["Chất liệu: ABS", "Trọng lượng: 200g", ...]
+function specVal(specs, ...keys) {
+  for (const s of specs) {
+    const lower = s.toLowerCase();
+    for (const k of keys) {
+      if (lower.includes(k.toLowerCase())) {
+        const parts = s.split(/[:：]/);
+        if (parts.length >= 2) return parts.slice(1).join(':').trim();
+        return s.trim();
+      }
+    }
+  }
+  return '';
+}
+
+// ── Sinh tên sản phẩm chuẩn Shopee từ data ────────────────────────────────────
+function buildShopeeName(d) {
+  // Lấy title gốc, loại bỏ tiếng Trung
+  const raw = (d.title || '').replace(/[一-鿿㐀-䶿]+/g, '').replace(/s+/g, ' ').trim();
+  if (raw.length >= 10) return raw.substring(0, 120);
+  // Fallback: ghép từ specs
+  const mat   = specVal(d.specs, 'chất liệu', 'material', '材质', '材料');
+  const model = specVal(d.specs, 'model', '型号', 'sku');
+  return [mat, model, raw].filter(Boolean).join(' ').substring(0, 120) || d.title || '';
+}
+
+// ── Sinh hashtag từ title và specs ────────────────────────────────────────────
+function buildHashtags(d) {
+  const tags = new Set();
+  const title = (d.title || '').toLowerCase();
+
+  // Detect category từ title/specs
+  if (/sạc|charger|充电/.test(title)) tags.add('#sacnhanh');
+  if (/không dây|wireless|无线/.test(title)) tags.add('#sackhongday');
+  if (/iphone|ios/.test(title)) tags.add('#phuKienIphone');
+  if (/android|samsung|xiaomi|oppo|vivo/.test(title)) tags.add('#phuKienAndroid');
+  if (/ốp|case|op lung/.test(title)) tags.add('#oplung');
+  if (/kính|kinh|tempered|glass/.test(title)) tags.add('#kinhcuongluc');
+  if (/dây|cáp|cable|day cap/.test(title)) tags.add('#daycap');
+  if (/tai nghe|headphone|earphone|earbuds/.test(title)) tags.add('#tainghe');
+  if (/bàn phím|keyboard/.test(title)) tags.add('#banphim');
+  if (/chuột|mouse/.test(title)) tags.add('#chuotkhongday');
+  if (/túi|balo|bag|pouch/.test(title)) tags.add('#tuidung');
+  if (/đèn|led|lamp|light/.test(title)) tags.add('#denled');
+
+  // Generic fallback
+  if (tags.size === 0) tags.add('#phuKienDienTu');
+  tags.add('#njoyshop');
+  return [...tags].slice(0, 5).join(' ');
+}
+
+// ── Auto-generate mô tả chuẩn Shopee từ data thực tế ──────────────────────────
+function buildShopeeDesc(d) {
+  const L   = [];
+  const sp  = d.specs  || [];
+  const vr  = d.variants || [];
+  const is1688 = d.platform === '1688';
+
+  // ── PHẦN 1: THÔNG SỐ KỸ THUẬT ────────────────────────────────────────────
+  L.push('--- THÔNG SỐ KỸ THUẬT ---');
+
+  // Tên sản phẩm
+  const cleanTitle = (d.title || '').replace(/[一-鿿㐀-䶿]+/g, '').replace(/s+/g, ' ').trim();
+  L.push('• Tên sản phẩm: ' + (cleanTitle || d.title || 'Xem ảnh'));
+
+  // Dump toàn bộ specs đã có (loại tiếng Trung nếu có thể)
+  if (sp.length > 0) {
+    sp.forEach(s => {
+      // Bỏ qua dòng toàn tiếng Trung
+      const latinPart = s.replace(/[一-鿿㐀-䶿]/g, '').trim();
+      if (latinPart.length > 3) {
+        L.push('• ' + s.replace(/[一-鿿㐀-䶿]+/g, '').replace(/s+/g, ' ').trim());
+      } else {
+        L.push('• ' + s); // Giữ nguyên cả tiếng Trung nếu cần
+      }
+    });
+  }
+
+  // Phiên bản / màu sắc
+  if (vr.length > 0) {
+    L.push('• Phiên bản / màu sắc: ' + vr.slice(0, 8).join(', '));
+  }
+
+  // Giá tham khảo
+  if (d.price) {
+    L.push('• Giá gốc: ' + d.price.cnyStr + ' ≈ ' + d.price.vndStr);
+  }
+
+  L.push('');
+
+  // ── PHẦN 2: CÔNG DỤNG VÀ LỢI ÍCH ────────────────────────────────────────
+  L.push('--- CÔNG DỤNG VÀ LỢI ÍCH ---');
+
+  // Trích từ desc gốc nếu có (lấy các câu có nghĩa, bỏ tiếng Trung)
+  if (d.desc) {
+    // Tách câu / dòng từ desc
+    const sentences = d.desc
+      .replace(/[一-鿿㐀-䶿]+[^
+]*/g, '') // bỏ đoạn toàn Hán
+      .split(/[.。!！
+|]+/)
+      .map(s => s.replace(/s+/g, ' ').trim())
+      .filter(s => s.length > 10 && s.length < 200 && !/^[\d\.\-]+$/.test(s));
+
+    const used = new Set();
+    let count = 0;
+    for (const s of sentences) {
+      if (count >= 5) break;
+      if (!used.has(s)) {
+        used.add(s);
+        L.push('• ' + s);
+        count++;
+      }
+    }
+    // Nếu không lấy được gì từ desc, để placeholder nhỏ
+    if (count === 0) L.push('• Sản phẩm chất lượng cao, thiết kế tinh tế, sử dụng bền bỉ');
+  } else {
+    // Sinh lợi ích generic từ specs nếu không có desc
+    const mat = specVal(sp, 'chất liệu', 'material', '材质');
+    if (mat) L.push('• Chất liệu ' + mat + ', bền bỉ và an toàn khi sử dụng');
+    const size = specVal(sp, 'kích thước', 'size', '尺寸', 'dimension');
+    if (size) L.push('• Kích thước gọn nhẹ ' + size + ', dễ dàng mang theo');
+    const weight = specVal(sp, 'trọng lượng', 'weight', '重量');
+    if (weight) L.push('• Trọng lượng ' + weight + ', không gây cảm giác nặng nề');
+    L.push('• Thiết kế hiện đại, phù hợp với nhiều phong cách sử dụng');
+    L.push('• Dễ sử dụng, không cần hướng dẫn phức tạp');
+  }
+
+  L.push('');
+
+  // ── PHẦN 3: BẢO HÀNH & CAM KẾT ──────────────────────────────────────────
+  L.push('--- BẢO HÀNH & CAM KẾT ---');
+  // Tìm thông tin bảo hành trong specs
+  const bh = specVal(sp, 'bảo hành', 'warranty', '保修', '质保');
+  if (bh) {
+    L.push('• Bảo hành: ' + bh);
+  } else {
+    L.push('• Bảo hành: 3 tháng lỗi do nhà sản xuất');
+  }
+  L.push('• Đổi trả: Trong 7 ngày nếu lỗi do nhà sản xuất');
+  L.push('• Sản phẩm được kiểm tra kỹ trước khi giao');
+
+  return L.join('\n');
 }
 
 // ── Output formatter (full — for copyBtn) ─────────────────────────────────────
@@ -78,12 +224,17 @@ function formatOutput(d) {
   }
 
   if (d.desc) {
-    L.push('[ MO TA GOC (tham khao, KHONG copy nguyen) ]');
+    L.push('[ MO TA GOC ]');
     L.push(d.desc);
     L.push('');
   }
 
-  L.push(formatShopeePrompt(d));
+  L.push('');
+  L.push('════════════════════════════════════════════════════════');
+  L.push('MO TA CHUAN SHOPEE (DA DUOC TU DONG TAO TU DU LIEU TREN)');
+  L.push('════════════════════════════════════════════════════════');
+  L.push('');
+  L.push(formatShopeeSection(d));
 
   return L.join('\n');
 }
@@ -91,7 +242,6 @@ function formatOutput(d) {
 // ── Mô tả gốc (chỉ text từ Taobao/1688) ─────────────────────────────────────
 function formatDescOnly(d) {
   const L = [];
-  const is1688 = d.platform === '1688';
 
   L.push('=== MO TA GOC - ' + d.platform.toUpperCase() + ' ===');
   L.push('URL: ' + d.url);
@@ -125,106 +275,37 @@ function formatDescOnly(d) {
   return L.join('\n');
 }
 
-// ── Shopee prompt (phan chuan Shopee biet lap) ────────────────────────────────
-function formatShopeePrompt(d) {
+// ── Mô tả chuẩn Shopee đã được điền sẵn nội dung ────────────────────────────
+function formatShopeeSection(d) {
   const L = [];
-  const is1688 = d.platform === '1688';
 
-  L.push('================================================================');
-  L.push('YEU CAU: Viet TEN SAN PHAM + MO TA + HASHTAG chuan Shopee');
-  L.push('Nguon du lieu: ' + (is1688 ? '1688 (thong so chinh xac cao)' : 'Taobao'));
-  L.push('================================================================');
+  // TÊN SẢN PHẨM
+  L.push('━━━ TÊN SẢN PHẨM (đề xuất - tối đa 120 ký tự) ━━━');
+  L.push(buildShopeeName(d));
   L.push('');
 
-  if (d.price) {
-    L.push('[ GIA ] ' + d.price.cnyStr + ' => ' + d.price.vndStr + ' (ty gia x4.100)');
-    L.push('');
-  }
-
-  L.push('[ TIEU DE GOC ]');
-  L.push(d.title || '(khong lay duoc)');
+  // MÔ TẢ
+  L.push('━━━ MÔ TẢ SẢN PHẨM ━━━');
+  L.push('');
+  L.push(buildShopeeDesc(d));
   L.push('');
 
-  if (d.specs.length > 0) {
-    L.push('[ THONG SO ]');
-    d.specs.forEach(s => L.push('  ' + s));
-    L.push('');
-  }
-
-  if (d.desc) {
-    L.push('[ MO TA GOC (tham khao) ]');
-    L.push(d.desc);
-    L.push('');
-  }
-
-  L.push('━━━ PHAN 1: TEN SAN PHAM (toi da 120 ky tu) ━━━');
-  L.push('');
-  L.push('Quy tac bat buoc:');
-  L.push(' * Khong viet HOA toan bo, khong spam !!!!, khong lap tu khoa');
-  L.push(' * Khong chen: so dien thoai, link, ten shop, cam ket "gia re nhat"');
-  L.push(' * Ten phai khop voi anh va thong so thuc te');
-  L.push(' * Viet Title Case, tu nhien, de doc');
-  L.push('');
-  L.push('Goi y cong thuc (phu kien dien tu):');
-  L.push(' [Uu diem chinh] + [Chat lieu/Chuan] + [Ten SP] + [Dong may tuong thich]');
+  // HASHTAG
+  L.push('━━━ HASHTAG ━━━');
+  L.push(buildHashtags(d));
   L.push('');
 
-  L.push('━━━ PHAN 2: MO TA SAN PHAM CHUAN SHOPEE ━━━');
-  L.push('');
-  L.push('Shopee quy dinh mo ta can co du 3 phan (banhang.shopee.vn/edu/article/2911):');
-  L.push(' (1) Thong so ky thuat -- chat lieu, trong luong, kich thuoc, cac dac tinh');
-  L.push(' (2) Cong dung va loi ich -- tinh nang, loi ich, huong dan su dung');
-  L.push(' (3) Bao hanh -- thoi gian, dieu kien, chinh sach doi tra (neu co)');
-  L.push('');
-  L.push('Viet bang tieng Viet, ro rang, khong dich may, khong sao chep tieng Trung.');
-  L.push('Moi diem dung dau "*". Khong ghi so dien thoai, link ngoai Shopee, dia chi shop.');
-  L.push('');
-  L.push('===== BAT DAU MO TA =====');
-  L.push('');
-  L.push('--- THONG SO KY THUAT ---');
-  L.push('* Ten san pham: [ten day du, chinh xac]');
-  L.push('* Thuong hieu: [neu co, ghi ro]');
-  L.push('* Chat lieu: [VD: kinh cuong luc 9H, day 0.26mm, trong suot 99.9%]');
-  L.push('* Kich thuoc / Trong luong: [lay tu thong so goc neu co]');
-  L.push('* Tuong thich: [liet ke cu the cac dong may]');
-  L.push('* Xuat xu: [neu biet]');
-  L.push('* Bo san pham bao gom: [liet ke thu gi kem theo]');
-  L.push('[Them cac thong so quan trong khac tu phan THONG SO KY THUAT o tren]');
-  L.push('');
-  L.push('--- CONG DUNG VA LOI ICH ---');
-  L.push('* [Loi ich 1 -- viet theo KET QUA nguoi dung nhan duoc]');
-  L.push('* [Loi ich 2]');
-  L.push('* [Loi ich 3]');
-  L.push('* [Loi ich 4]');
-  L.push('* [Loi ich 5 -- toi da 7 diem, moi diem ngan gon, thiet thuc]');
-  L.push('');
-  L.push('--- BAO HANH VA CAM KET ---');
-  L.push('* Bao hanh: [X thang/nam] -- [dieu kien cu the]');
-  L.push('* Chinh sach doi tra: [VD: doi trong 7 ngay neu loi san xuat]');
-  L.push('');
-  L.push('===== KET THUC MO TA =====');
-  L.push('');
-  L.push('Luu y quan trong:');
-  L.push(' [+] Thong so 1688 chinh xac hon Taobao -- uu tien neu co ca hai nguon');
-  L.push(' [-] KHONG hua hen qua muc, KHONG them tinh nang khong co trong thong so goc');
-  L.push(' [-] KHONG viet !!! hay "gia soc / re nhat / hang dau Viet Nam"');
-  L.push(' [-] KHONG spam tu khoa, KHONG viet hoa ca doan');
-  L.push('');
-
-  L.push('━━━ PHAN 3: HASHTAG (3-5 hashtag thich hop nhat) ━━━');
-  L.push('');
-  L.push('Format: #tukhoakhongdau (VD: #kinhcuongluc #oplung #phuKienIphone)');
-  L.push('Chi lay hashtag that su lien quan -- KHONG spam hashtag nganh hang khac.');
-  L.push('');
-  L.push('================================================================');
-  L.push('SAU KHI CLAUDE TRA VE:');
-  L.push(' 1. Copy ten san pham -> dan vao o "Ten san pham" tren Shopee Seller Center');
-  L.push(' 2. Copy mo ta -> dan vao o "Mo ta san pham"');
-  L.push(' 3. Copy hashtag -> dan vao o "Hashtag"');
-  L.push(' 4. Tai anh bang nut ben duoi truoc khi len listing');
-  L.push('================================================================');
+  L.push('────────────────────────────────────────────────────────');
+  L.push('Luu y: Kiem tra lai thong so truoc khi dang ban.');
+  L.push('Thong so tu ' + (d.platform === '1688' ? '1688 (chinh xac cao)' : 'Taobao (can kiem tra lai)') + '.');
+  L.push('────────────────────────────────────────────────────────');
 
   return L.join('\n');
+}
+
+// ── Copy chuẩn Shopee (alias cho button) ──────────────────────────────────────
+function formatShopeePrompt(d) {
+  return formatShopeeSection(d);
 }
 
 // ── Image preview strip ────────────────────────────────────────────────────────
@@ -338,14 +419,14 @@ extractBtn.addEventListener('click', async () => {
   }
 });
 
-// ── Copy toan bo ───────────────────────────────────────────────────────────────
+// ── Copy toàn bộ ───────────────────────────────────────────────────────────────
 copyBtn.addEventListener('click', async () => {
   try { await navigator.clipboard.writeText(output.value); }
   catch { output.select(); document.execCommand('copy'); }
-  setStatus('Da copy toan bo! Mo Claude va paste vao.', 'ok');
+  setStatus('Da copy toan bo!', 'ok');
 });
 
-// ── Copy mo ta goc (Taobao/1688) ──────────────────────────────────────────────
+// ── Copy mô tả gốc (Taobao/1688) ──────────────────────────────────────────────
 copyDescBtn.addEventListener('click', async () => {
   if (!currentData) return;
   const text = formatDescOnly(currentData);
@@ -354,11 +435,11 @@ copyDescBtn.addEventListener('click', async () => {
   setStatus('Da copy mo ta goc! (' + currentData.platform.toUpperCase() + ')', 'ok');
 });
 
-// ── Copy chuan Shopee ──────────────────────────────────────────────────────────
+// ── Copy mô tả chuẩn Shopee (đã điền sẵn từ data) ────────────────────────────
 copyShopeeBtn.addEventListener('click', async () => {
   if (!currentData) return;
-  const text = formatShopeePrompt(currentData);
+  const text = formatShopeeSection(currentData);
   try { await navigator.clipboard.writeText(text); }
   catch { output.value = text; output.select(); document.execCommand('copy'); output.value = formatOutput(currentData); }
-  setStatus('Da copy chuan Shopee! Mo Claude va paste vao.', 'ok');
+  setStatus('Da copy mo ta chuan Shopee (da dien san)!', 'ok');
 });
